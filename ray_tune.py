@@ -1,5 +1,4 @@
-import tempfile
-from pathlib import Path
+import os
 from functools import partial
 
 from ray import tune as ray_tune
@@ -15,110 +14,11 @@ from ray.tune.search import ConcurrencyLimiter
 from ray.tune.schedulers import ASHAScheduler
 from ray.tune.schedulers.hb_bohb import HyperBandForBOHB
 
-from fixmatch import *
+from util.util import *
+from fixmatch import set_seed
+from fixmatch import trainer as fixmatch_trainer
 
 globally_best_iou = 0
-
-def fixmatch_trainer(args, cfg):
-    global globally_best_iou
-
-    init_logging(args, cfg)
-
-    model = init_model(args.nclass, cfg['backbone'])
-    print(f"Param count: {count_params(model):.1f}M")
-    optimizer = init_optimizer(model, cfg)
-
-    class_weights_np = np.array(cfg['class_weights'])
-    class_weights = torch.tensor(class_weights_np).float().cuda()
-
-    if args.nclass == 1:
-        # criterion_jaccard = JaccardLoss("binary")
-        pass
-    else:
-        # criterion_jaccard = JaccardLoss("multiclass")
-        # criterion_l = criterion_jaccard
-        # criterion_u = criterion_jaccard
-
-        criterion_l = nn.CrossEntropyLoss(class_weights)
-        criterion_u = nn.CrossEntropyLoss(class_weights, reduction='none')
-
-
-    trainloader_l, trainloader_u, valloader = load_data(args, cfg)
-
-    total_iters = len(trainloader_l) * args.num_epochs
-
-    locally_best_iou = 0
-    epoch = -1
-
-    if args.use_checkpoint and os.path.exists(os.path.join(args.save_path, 'latest.pth')):
-        checkpoint = torch.load(os.path.join(args.save_path, 'latest.pth'))
-        model.load_state_dict(checkpoint['model'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        epoch = checkpoint['epoch']
-        locally_best_iou = checkpoint['locally_best_iou']
-
-        print(f"Loading checkpoint from epoch: {epoch}")
-
-    print("Starting Training...")
-    for epoch in range(epoch + 1, args.num_epochs):
-        print(f"Epoch [{epoch}/{args.num_epochs}]\t Previous Best IoU: {locally_best_iou}")
-
-        logs = run_epoch(
-            model, optimizer,
-            criterion_l, criterion_u, 
-            trainloader_l, trainloader_u, valloader,
-            epoch, total_iters,
-            args, cfg
-        )
-
-        loss_t = logs['epoch_train/loss']
-        loss_v = logs['eval/loss']
-        wIoU = logs['eval/wIoU']
-        gl_weights = cfg['grand_loss_weights']
-        gl_losses = np.array([loss_t, loss_v, 1 - wIoU])
-        
-        # gl_losses = np.log(gl_losses)
-        grand_loss = sum(gl_weights * gl_losses / sum(gl_weights))
-
-        is_locally_best = wIoU > locally_best_iou
-        locally_best_iou = max(wIoU, locally_best_iou)
-
-        logs['main/wIoU'] = locally_best_iou
-        logs['main/grand_loss'] = grand_loss
-
-        log({
-            'main/wIoU': locally_best_iou,
-            'main/grand_loss': grand_loss
-        })
-
-        is_globally_best = wIoU > globally_best_iou
-        globally_best_iou = max(wIoU, globally_best_iou)
-
-        checkpoint_data = {
-            'cfg': cfg,
-            'epoch': epoch,
-            'model': model.state_dict(),
-            'optimizer': optimizer.state_dict(),
-        }
-
-        if epoch > 10 and is_locally_best:
-            checkpoint_data['locally_best_iou'] = locally_best_iou
-            with tempfile.TemporaryDirectory() as checkpoint_dir:
-                checkpoint_path = Path(checkpoint_dir) / "locally_best.pth"
-                torch.save(checkpoint_data, checkpoint_path)
-
-                checkpoint = Checkpoint.from_directory(checkpoint_dir)
-                ray_train.report(logs,checkpoint=checkpoint)
-        else:
-            ray_train.report(logs)
-
-        if epoch > 10 and is_globally_best:
-            checkpoint_data['globally_best_iou'] = globally_best_iou
-            torch.save(checkpoint_data, os.path.join(args.save_path, 'globally_best.pth'))
-
-
-    print("Training Completed!")
-
 
 def main(prev_best_cfgs, param_space, gpus_per_trial):
     set_seed(42)
@@ -175,7 +75,7 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
     
     tuner = ray_tune.Tuner(
         ray_tune.with_resources(
-            ray_tune.with_parameters(partial(fixmatch_trainer, args)),
+            ray_tune.with_parameters(partial(fixmatch_trainer, ray_train, ray_tune, args)),
             resources={"cpu": 2, "gpu": gpus_per_trial}
         ),
         tune_config=ray_tune.TuneConfig(

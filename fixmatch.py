@@ -1,6 +1,8 @@
 # General
 import os
-from collections import deque
+import tempfile
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -22,6 +24,11 @@ from util.util import *
 from util.train_helper import *
 from util.eval_helper import *
 
+# ray
+from ray.train import Checkpoint
+
+globally_best_iou = 0
+
 # Set the random seed for reproducibility
 def set_seed(seed=42):
     np.random.seed(seed)
@@ -32,7 +39,6 @@ def set_seed(seed=42):
     torch.backends.cudnn.deterministic = True
 
     os.environ['PYTHONHASHSEED'] = str(seed)
-
 
 def load_data(args, cfg):
     # Datasets
@@ -73,7 +79,8 @@ def run_epoch(
         criterion_l, criterion_u, 
         trainloader_l, trainloader_u, valloader,
         epoch, total_iters,
-        args, cfg
+        args, cfg,
+        ray_tune
     ):
 
     loader = zip(trainloader_l, trainloader_u, trainloader_u)
@@ -249,7 +256,9 @@ def run_epoch(
     } 
 
 
-def trainer(args, cfg):
+def trainer(ray_train, ray_tune, args, cfg):
+    global globally_best_iou
+
     init_logging(args, cfg)
 
     model = init_model(args.nclass, cfg['backbone'])
@@ -296,22 +305,54 @@ def trainer(args, cfg):
             criterion_l, criterion_u, 
             trainloader_l, trainloader_u, valloader,
             epoch, total_iters,
-            args, cfg
+            args, cfg,
+            ray_tune
         )
 
+        loss_t = logs['epoch_train/loss']
+        loss_v = logs['eval/loss']
         wIoU = logs['eval/wIoU']
-        is_best = wIoU > best_iou
-        best_iou = max(wIoU, best_iou)
-        checkpoint = {
+        gl_weights = cfg['grand_loss_weights']
+        gl_losses = np.array([loss_t, loss_v, 1 - wIoU])
+        
+        # gl_losses = np.log(gl_losses)
+        grand_loss = sum(gl_weights * gl_losses / sum(gl_weights))
+
+        is_locally_best = wIoU > locally_best_iou
+        locally_best_iou = max(wIoU, locally_best_iou)
+
+        logs['main/wIoU'] = locally_best_iou
+        logs['main/grand_loss'] = grand_loss
+
+        log({
+            'main/wIoU': locally_best_iou,
+            'main/grand_loss': grand_loss
+        })
+
+        is_globally_best = wIoU > globally_best_iou
+        globally_best_iou = max(wIoU, globally_best_iou)
+
+        checkpoint_data = {
+            'cfg': cfg,
+            'epoch': epoch,
             'model': model.state_dict(),
             'optimizer': optimizer.state_dict(),
-            'epoch': epoch,
-            'best_iou': best_iou,
         }
 
-        torch.save(checkpoint, os.path.join(args.save_path, 'latest.pth'))
-        if is_best:
-            torch.save(checkpoint, os.path.join(args.save_path, 'best.pth'))
+        if epoch > 10 and is_locally_best:
+            checkpoint_data['locally_best_iou'] = locally_best_iou
+            with tempfile.TemporaryDirectory() as checkpoint_dir:
+                checkpoint_path = Path(checkpoint_dir) / "locally_best.pth"
+                torch.save(checkpoint_data, checkpoint_path)
+
+                checkpoint = Checkpoint.from_directory(checkpoint_dir)
+                ray_train.report(logs,checkpoint=checkpoint)
+        else:
+            ray_train.report(logs)
+
+        if epoch > 10 and is_globally_best:
+            checkpoint_data['globally_best_iou'] = globally_best_iou
+            torch.save(checkpoint_data, os.path.join(args.save_path, 'globally_best.pth'))
 
     print("Training Completed!")
 
