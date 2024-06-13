@@ -1,0 +1,128 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "supervise-idx-3",
+            "type": "debugpy",
+            "env": {
+                "CUDA_LAUNCH_BLOCKING": "1",
+                "CUDA_VISIBLE_DEVICES": "2",
+                "TUNE_DISABLE_STRICT_METRIC_CHECKING": "1"
+            },
+            "request": "launch",
+            "program": "supervised.py",
+            "args": [
+                "--project_name=ss2-idx-3",
+                "--model_name=supervised",
+                "--enable_logging=False",
+
+                "--dataset=idx_3",
+                "--nclass=1",
+                "--num_epochs=100",
+                "--save_path=exp/idx_3",
+            ],
+            "justMyCode": false,
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "supervise-idx-12",
+            "type": "debugpy",
+            "env": {
+                "CUDA_LAUNCH_BLOCKING": "1",
+                "CUDA_VISIBLE_DEVICES": "2",
+                "TUNE_DISABLE_STRICT_METRIC_CHECKING": "1"
+            },
+            "request": "launch",
+            "program": "supervised.py",
+            "args": [
+                "--project_name=ss2-idx-12",
+                "--model_name=supervised",
+                "--enable_logging=False",
+
+                "--dataset=idx_12",
+                "--nclass=3",
+                "--num_epochs=100",
+                "--save_path=exp/idx_12",
+            ],
+            "justMyCode": false,
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "fixmatch-idx-3",
+            "type": "debugpy",
+            "env": {
+                "CUDA_LAUNCH_BLOCKING": "1",
+                "CUDA_VISIBLE_DEVICES": "2",
+                "TUNE_DISABLE_STRICT_METRIC_CHECKING": "1"
+            },
+            "request": "launch",
+            "program": "fixmatch.py",
+            "args": [
+                "--project_name=ss2-idx-3",
+                "--model_name=supervised",
+                "--enable_logging=False",
+
+                "--dataset=idx_3",
+                "--nclass=1",
+                "--num_epochs=100",
+                "--save_path=exp/idx_3",
+            ],
+            "justMyCode": false,
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "fixmatch-idx-12",
+            "type": "debugpy",
+            "env": {
+                "CUDA_LAUNCH_BLOCKING": "1",
+                "CUDA_VISIBLE_DEVICES": "2",
+                "TUNE_DISABLE_STRICT_METRIC_CHECKING": "1"
+            },
+            "request": "launch",
+            "program": "fixmatch.py",
+            "args": [
+                "--project_name=ss2-ssl-idx-12",
+                "--model_name=debug-fixmatch-1",
+                "--enable_logging",
+                // "--use_checkpoint",
+
+                "--dataset=idx_12",
+                "--nclass=3",
+                "--num_epochs=100",
+                "--save_path=exp/idx_12",
+            ],
+            "justMyCode": false,
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "raytune-fixmatch-idx-12",
+            "type": "debugpy",
+            "env": {
+                "CUDA_LAUNCH_BLOCKING": "1",
+                "CUDA_VISIBLE_DEVICES": "2",
+                "TUNE_DISABLE_STRICT_METRIC_CHECKING": "1"
+            },
+            "request": "launch",
+            "program": "ray_tune.py",
+            "args": [
+                "--project_name=ss2-ssl-idx-12",
+                "--model_name=fixmatch-effnet-b1",
+                "--enable_logging",
+                // "--use_checkpoint",
+
+                "--dataset=idx_12",
+                "--nclass=3",
+                "--num_samples=3",
+                "--num_epochs=100",
+                "--save_path=/data1/tgajpati/ss2_ty/Reimplementing-UniMatch/exp/idx_12",
+            ],
+            "justMyCode": false,
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        },
+    ]
+}
