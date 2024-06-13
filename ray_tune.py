@@ -127,30 +127,51 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
 
     os.makedirs(args.save_path, exist_ok=True)
 
-    # bohb = TuneBOHB(
-    #     points_to_evaluate=prev_best_cfgs
-    # )
+    if args.search_alg == 'rand':
+        print("USING RAND SEARCH")
+        
+        search_alg = None
+        
+        scheduler = ASHAScheduler(
+            max_t=args.num_epochs,
+            grace_period=3,
+            reduction_factor=2
+        )
 
-    # search_alg = ConcurrencyLimiter(bohb, max_concurrent=2)
+    elif args.search_alg == 'bohb':
+        print("USING BOHB SEARCH")
 
-    # scheduler = HyperBandForBOHB(
-    #     max_t=args.num_epochs,
-    #     reduction_factor=2,
-    # )
+        bohb = TuneBOHB(
+            # param_space,
+            # metric="main/grand_loss",
+            # mode="min",
+            points_to_evaluate=prev_best_cfgs
+        )
 
-    hyperopt = HyperOptSearch(
-        param_space,
-        metric="main/grand_loss",
-        mode="min",
-        points_to_evaluate=prev_best_cfgs,
-    )
+        search_alg = ConcurrencyLimiter(bohb, max_concurrent=2)
 
-    search_alg = ConcurrencyLimiter(hyperopt, max_concurrent=2)
+        scheduler = HyperBandForBOHB(
+            max_t=args.num_epochs,
+            reduction_factor=2,
+        )
 
-    scheduler = ASHAScheduler(
-        max_t=args.num_epochs,
-        grace_period=3,
-        reduction_factor=2)
+    elif args.search_alg == 'hyperopt':
+        print("USING HYPEROPT SEARCH")
+
+        hyperopt = HyperOptSearch(
+            param_space,
+            metric="main/grand_loss",
+            mode="min",
+            points_to_evaluate=prev_best_cfgs,
+        )
+
+        search_alg = ConcurrencyLimiter(hyperopt, max_concurrent=2)
+
+        scheduler = ASHAScheduler(
+            max_t=args.num_epochs,
+            grace_period=3,
+            reduction_factor=2
+        )
     
     tuner = ray_tune.Tuner(
         ray_tune.with_resources(
@@ -171,7 +192,7 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
                 checkpoint_score_attribute="main/grand_loss",
             )
         ),
-        # param_space=param_space,
+        param_space=param_space,
     )
 
     results = tuner.fit()
@@ -188,6 +209,7 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
 if __name__ == "__main__":
     prev_best_cfgs = [
         {
+            'batch_size': 2,
             'lr': 3e-4,
             'weight_decay': 0,
 
@@ -195,8 +217,10 @@ if __name__ == "__main__":
             'p_jitter': 0.8,
             'p_gray': 0.2,
             'p_blur': 0.5,
+            'p_cutmix': 0.5,
         },
         {
+            'batch_size': 2,
             'lr': 0.000634,
             'weight_decay': 7.382e-7,
 
@@ -204,6 +228,7 @@ if __name__ == "__main__":
             'p_jitter': 0.795,
             'p_gray': 0.6707,
             'p_blur': 0.01434,
+            'p_cutmix': 0.5,
         },
         # {
         #     'lr': 0.0001481,
@@ -243,26 +268,28 @@ if __name__ == "__main__":
         # },
     ]
 
-    # param_space = {
-    #     'grand_loss_weights': np.array([1.0, 2.0, 4.0]),
-    #     'crop_size': 800,
-    #     'batch_size': 2, 
-    #     'unlabeled_ratio': 10,
+    param_space = {
+        'grand_loss_weights': np.array([1.0, 2.0, 4.0]),
+        'crop_size': 800,
+        'batch_size': ray_tune.choice([2, 4]), 
+        'unlabeled_ratio': 10,
 
-    #     'backbone': 'efficientnet-b0',
+        'backbone': 'efficientnet-b0',
         
-    #     'class_weights': [0.008, 1.0, 0.048],
-    #     'lr': ray_tune.loguniform(1e-5, 1e-3),
-    #     'lr_multi': 10.0,
-    #     'weight_decay': ray_tune.loguniform(1e-9, 1e-5),
-    #     'scheduler': 'poly',
+        'class_weights': [0.008, 1.0, 0.048],
+        'lr': ray_tune.loguniform(1e-5, 1e-3),
+        'lr_multi': 10.0,
+        'weight_decay': ray_tune.loguniform(1e-9, 1e-5),
+        'scheduler': 'poly',
 
-    #     'conf_thresh': ray_tune.qloguniform(0.5, 0.99, 0.01),
-    #     'p_jitter': ray_tune.quniform(0.0, 0.8, 0.1),
-    #     'p_gray': ray_tune.quniform(0.0, 0.8, 0.1),
-    #     'p_blur': ray_tune.quniform(0.0, 0.8, 0.1),
-    # }
+        'conf_thresh': ray_tune.qloguniform(0.5, 0.99, 0.01),
+        'p_jitter': ray_tune.quniform(0.0, 0.8, 0.1),
+        'p_gray': ray_tune.quniform(0.0, 0.8, 0.1),
+        'p_blur': ray_tune.quniform(0.0, 0.8, 0.1),
+        'p_cutmix': ray_tune.quniform(0.0, 0.8, 0.1)
+    }
 
+    """
     param_space = {
         'grand_loss_weights': np.array([1.0, 2.0, 4.0]),
         'crop_size': 800,
@@ -281,6 +308,8 @@ if __name__ == "__main__":
         'p_jitter': hp.quniform('p_jitter', 0.0, 0.8, 0.1),
         'p_gray': hp.quniform('p_gray', 0.0, 0.8, 0.1),
         'p_blur': hp.quniform('p_blur', 0.0, 0.8, 0.1),
+        'p_cutmix': hp.quniform('p_cutmix', 0.0, 0.8, 0.1)
     }
+    """
 
     main(prev_best_cfgs, param_space, gpus_per_trial=0.5)

@@ -34,6 +34,7 @@ class KerogensDataset(Dataset):
         self.p_jitter = cfg['p_jitter']
         self.p_gray = cfg['p_gray']
         self.p_blur = cfg['p_blur']
+        self.p_cutmix = cfg['p_cutmix']
 
         self.images_dir = os.path.join(data_root, 'image')
         self.images = sorted(os.listdir(self.images_dir))
@@ -83,7 +84,7 @@ class KerogensDataset(Dataset):
             img_s1 = transforms.ColorJitter(0.5, 0.5, 0.5, 0.25)(img_s1)
         img_s1 = transforms.RandomGrayscale(p=self.p_gray)(img_s1)
         img_s1 = blur(img_s1, p=self.p_blur)
-        cutmix_box1 = obtain_cutmix_box(img_s1.size[0], p=0.5)
+        cutmix_box1 = obtain_cutmix_box(img_s1.size[0], p=self.p_cutmix)
 
         if random.random() < 0.8:
             img_s2 = transforms.ColorJitter(0.5, 0.5, 0.5, 0.25)(img_s2)

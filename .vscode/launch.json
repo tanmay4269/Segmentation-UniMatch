@@ -78,7 +78,7 @@
             "type": "debugpy",
             "env": {
                 "CUDA_LAUNCH_BLOCKING": "1",
-                "CUDA_VISIBLE_DEVICES": "2",
+                "CUDA_VISIBLE_DEVICES": "1",
                 "TUNE_DISABLE_STRICT_METRIC_CHECKING": "1"
             },
             "request": "launch",
@@ -86,7 +86,8 @@
             "args": [
                 "--project_name=ss2-ssl-idx-12",
                 "--model_name=debug-fixmatch-1",
-                "--enable_logging",
+                "--fast_debug",
+                // "--enable_logging",
                 // "--use_checkpoint",
 
                 "--dataset=idx_12",

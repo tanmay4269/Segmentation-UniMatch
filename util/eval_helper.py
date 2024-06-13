@@ -102,45 +102,38 @@ def visualise_eval(img, target, pred, idx, epoch, args, cfg):
 
 def visualise_train(
         img_x, mask_x, pred_x,
-        img_u_w, img_u_s, 
-        pred_u_w, pred_u_s,
+        img_u_s, mask_u_w_cutmixed, pred_u_s,
         idx, epoch, args, cfg
     ):
     
     if args.nclass == 1:
         pred_x = pred_x.sigmoid() > cfg['conf_thresh']
-        pred_u_w = pred_u_w.sigmoid() > cfg['conf_thresh']
         pred_u_s = pred_u_s.sigmoid() > cfg['conf_thresh']
     else:
-        pred_x = (pred_x.softmax(dim=1) > cfg['conf_thresh']).int()
+        # pred_x = (pred_x.softmax(dim=1) > cfg['conf_thresh']).int()
         pred_x = pred_x.argmax(dim=1)
 
-        pred_u_w = (pred_u_w.softmax(dim=1) > cfg['conf_thresh']).int()
-        pred_u_w = pred_u_w.argmax(dim=1)
-
-        pred_u_s = (pred_u_s.softmax(dim=1) > cfg['conf_thresh']).int()
+        # pred_u_s = (pred_u_s.softmax(dim=1) > cfg['conf_thresh']).int()
         pred_u_s = pred_u_s.argmax(dim=1)
 
     img_x_np = img_x.detach().cpu().numpy()
-    img_u_w_np = img_u_w.detach().cpu().numpy()
     img_u_s_np = img_u_s.detach().cpu().numpy()
 
     mask_x_np = F.one_hot(mask_x, args.nclass).detach().cpu().numpy()
     pred_x_np = F.one_hot(pred_x, args.nclass).detach().cpu().numpy()
-    pred_u_w_np = F.one_hot(pred_u_w, args.nclass).detach().cpu().numpy()
+    mask_u_w_cutmixed_np = F.one_hot(mask_u_w_cutmixed, args.nclass).detach().cpu().numpy()
     pred_u_s_np = F.one_hot(pred_u_s, args.nclass).detach().cpu().numpy()
 
-    for i in range(img_u_w_np.shape[0]):
+    for i in range(img_x_np.shape[0]):
         img_x = img_x_np[i].transpose(1,2,0)
-        img_u_w = img_u_w_np[i].transpose(1,2,0)
         img_u_s = img_u_s_np[i].transpose(1,2,0)
 
         mask_x = 255 * mask_x_np[i]
         pred_x = 255 * pred_x_np[i]
-        pred_u_w = 255 * pred_u_w_np[i]
+        mask_u_w_cutmixed = 255 * mask_u_w_cutmixed_np[i]
         pred_u_s = 255 * pred_u_s_np[i]
 
-        fig, axs = plt.subplots(3, 3, figsize=(15,15))
+        fig, axs = plt.subplots(2, 3, figsize=(15,15))
         fig.suptitle(f'Train Epoch {epoch}')
 
         # Labeled
@@ -155,26 +148,19 @@ def visualise_train(
         axs[0,2].imshow(pred_x)
         axs[0,2].set_title('pred_x')
         axs[0,2].axis('off')
-        
-        # Unlabeled Weak Augmentation
-        axs[1,0].imshow(img_u_w)
-        axs[1,0].set_title('img_u_w')
-        axs[1,0].axis('off')
-
-        axs[1,1].imshow(pred_u_w, cmap='gray')
-        axs[1,1].set_title('pred_u_w')
-        axs[1,1].axis('off')
-        axs[1,2].axis('off')
 
         # Unlabeled Strong Augmentation
-        axs[2,0].imshow(img_u_s)
-        axs[2,0].set_title('img_u_s')
-        axs[2,0].axis('off')
+        axs[1,0].imshow(img_u_s)
+        axs[1,0].set_title('img_u_s')
+        axs[1,0].axis('off')
 
-        axs[2,1].imshow(pred_u_s, cmap='gray')
-        axs[2,1].set_title('pred_u_s')
-        axs[2,1].axis('off')
-        axs[2,2].axis('off')
+        axs[1,1].imshow(mask_u_w_cutmixed, cmap='gray')
+        axs[1,1].set_title('mask_u_w_cutmixed')
+        axs[1,1].axis('off')
+
+        axs[1,2].imshow(pred_u_s, cmap='gray')
+        axs[1,2].set_title('pred_u_s')
+        axs[1,2].axis('off')
 
         if args.enable_logging:
             wandb.log({f"TrainImages/idx_{idx}": wandb.Image(fig)}, commit=False)

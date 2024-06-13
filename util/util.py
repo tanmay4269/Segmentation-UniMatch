@@ -30,6 +30,9 @@ def get_args():
     parser = argparse.ArgumentParser(description='Stranger-Sections-2')
     parser.add_argument('--project_name', type=str, default='ss2-idx_3')
     parser.add_argument('--model_name', type=str, default='debug')
+    
+    parser.add_argument('--search_alg', type=str, default='rand')
+    parser.add_argument('--fast_debug', action='store_true')
     parser.add_argument('--enable_logging', action='store_true')
     parser.add_argument('--use_checkpoint', action='store_true')
 

@@ -89,6 +89,9 @@ def run_epoch(
             (img_u_w, img_u_s, _, cutmix_box, _),
             (img_u_w_mix, img_u_s_mix, _, _, _)) in enumerate(loader):
 
+        if i > 2 and args.fast_debug:
+            break
+
         img_x, mask_x = img_x.cuda(), mask_x.cuda()
         img_u_w, img_u_s, cutmix_box = img_u_w.cuda(), img_u_s.cuda(), cutmix_box.cuda()
         img_u_w_mix, img_u_s_mix = img_u_w_mix.cuda(), img_u_s_mix.cuda()
@@ -113,22 +116,8 @@ def run_epoch(
 
         # Prediction
         num_lb, num_ulb = img_x.shape[0], img_u_w.shape[0]
-        pred_x, pred_u_w = model(torch.cat((img_x, img_u_w))).split([num_lb, num_ulb])
+        pred_x, pred_u_w = model(torch.cat((img_x, img_u_w))).split([num_lb,                 num_ulb])
         pred_u_s = model(img_u_s)
-
-        # CutMix
-        mask_u_w_cutmixed, conf_u_w_cutmixed = mask_u_w.clone(), conf_u_w.clone()
-        mask_u_w_cutmixed[cutmix_box == 1] = mask_u_w_mix[cutmix_box == 1]
-        conf_u_w_cutmixed[cutmix_box == 1] = conf_u_w_mix[cutmix_box == 1]
-
-        # Visualising 
-        if i < 9:
-            visualise_train(
-                img_x.clone(), mask_x.clone(), pred_x.clone(),
-                img_u_w.clone(), img_u_s.clone(), 
-                pred_u_w.clone(), pred_u_s.clone(),
-                i, epoch, args, cfg
-            )
 
         if args.nclass == 1:
             pred_u_w = pred_u_w.detach()
@@ -140,6 +129,19 @@ def run_epoch(
             pred_u_w = pred_u_w.detach()
             conf_u_w = pred_u_w.softmax(dim=1).max(dim=1)[0]
             mask_u_w = pred_u_w.argmax(dim=1)
+
+        # CutMix
+        mask_u_w_cutmixed, conf_u_w_cutmixed = mask_u_w.clone(), conf_u_w.clone()
+        mask_u_w_cutmixed[cutmix_box == 1] = mask_u_w_mix[cutmix_box == 1]
+        conf_u_w_cutmixed[cutmix_box == 1] = conf_u_w_mix[cutmix_box == 1]
+
+        # Visualising 
+        if i >= len(trainloader_u) - 9:
+            visualise_train(
+                img_x.clone(), mask_x.clone(), pred_x.clone(),
+                img_u_s.clone(), mask_u_w_cutmixed.clone(), pred_u_s.clone(),
+                i, epoch, args, cfg
+            )
 
         loss_x = criterion_l(pred_x, mask_x)
         
@@ -180,9 +182,6 @@ def run_epoch(
         if i % (len(trainloader_u) // 8) == 0:
             print(f"\tIter [{i}/{len(trainloader_u)}]\t loss_all: {total_loss.val}")
 
-        # debug
-        # break
-
     log({
         'epoch': epoch,
         'train_epoch/loss_all': total_loss.avg,
@@ -206,6 +205,9 @@ def run_epoch(
     
     with torch.no_grad():
         for idx, img, mask in valloader:
+            if idx > 2 and args.fast_debug:
+                break
+
             raw_img, mask = img.cuda(), mask.cuda()
 
             h, w = raw_img.shape[-2:]
@@ -230,9 +232,6 @@ def run_epoch(
 
             intersection_meter.update(intersection)
             union_meter.update(union)
-
-            # debug
-            # break
 
     eval_scores = get_eval_scores(intersection_meter, union_meter, cfg)
     eval_scores['eval/loss'] = total_val_loss.avg
@@ -338,10 +337,11 @@ def main():
         'weight_decay': 1e-9,
         'scheduler': 'poly',
 
-        'conf_thresh': 0.78,
-        'p_jitter': 0.3186,
-        'p_gray': 0.6534,
-        'p_blur': 0.2515,
+        'conf_thresh': 0.95,
+        'p_jitter': 0.8,
+        'p_gray': 0.2,
+        'p_blur': 0.5,
+        'p_cutmix': 0.5,
     }
 
     trainer(args, config)
