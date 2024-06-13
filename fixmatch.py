@@ -76,7 +76,7 @@ def run_epoch(
         args, cfg
     ):
 
-    loader = zip(trainloader_l, trainloader_u)
+    loader = zip(trainloader_l, trainloader_u, trainloader_u)
 
     total_loss  = AverageMeter(track_variance=True)
     total_loss_x = AverageMeter(track_variance=True)
@@ -86,16 +86,42 @@ def run_epoch(
     model.train()
 
     for i, ((img_x, mask_x),
-            (img_u_w, img_u_s, _, _, _)) in enumerate(loader):
+            (img_u_w, img_u_s, _, cutmix_box, _),
+            (img_u_w_mix, img_u_s_mix, _, _, _)) in enumerate(loader):
 
         img_x, mask_x = img_x.cuda(), mask_x.cuda()
-        img_u_w, img_u_s = img_u_w.cuda(), img_u_s.cuda()
+        img_u_w, img_u_s, cutmix_box = img_u_w.cuda(), img_u_s.cuda(), cutmix_box.cuda()
+        img_u_w_mix, img_u_s_mix = img_u_w_mix.cuda(), img_u_s_mix.cuda()
 
+        # predicting inside cutmix box
+        with torch.no_grad():
+            model.eval()
+
+            pred_u_w_mix = model(img_u_w_mix).detach()
+
+            if args.nclass == 1:
+                # TODO: verify if this works
+                conf_u_w_mix = pred_u_w_mix.sigmoid()
+                mask_u_w_mix = (conf_u_w_mix > cfg['conf_thresh']).int()
+            else:
+                conf_u_w_mix = pred_u_w_mix.softmax(dim=1).max(dim=1)[0]
+                mask_u_w_mix = pred_u_w_mix.argmax(dim=1)
+
+        # CutMix
+        img_u_s[cutmix_box.unsqueeze(1).expand(img_u_s.shape) == 1] = \
+            img_u_s_mix[cutmix_box.unsqueeze(1).expand(img_u_s.shape) == 1]
+
+        # Prediction
         num_lb, num_ulb = img_x.shape[0], img_u_w.shape[0]
-
         pred_x, pred_u_w = model(torch.cat((img_x, img_u_w))).split([num_lb, num_ulb])
         pred_u_s = model(img_u_s)
 
+        # CutMix
+        mask_u_w_cutmixed, conf_u_w_cutmixed = mask_u_w.clone(), conf_u_w.clone()
+        mask_u_w_cutmixed[cutmix_box == 1] = mask_u_w_mix[cutmix_box == 1]
+        conf_u_w_cutmixed[cutmix_box == 1] = conf_u_w_mix[cutmix_box == 1]
+
+        # Visualising 
         if i < 9:
             visualise_train(
                 img_x.clone(), mask_x.clone(), pred_x.clone(),
@@ -107,7 +133,7 @@ def run_epoch(
         if args.nclass == 1:
             pred_u_w = pred_u_w.detach()
             conf_u_w = pred_u_w.sigmoid()
-            mask_u_w = pred_u_w > cfg['conf_thresh']
+            mask_u_w = (conf_u_w > cfg['conf_thresh']).int()  # TODO: change this in fixmatch_wo_cutmix branch as well
 
             pred_x = pred_x.squeeze(1)
         else:
@@ -117,8 +143,8 @@ def run_epoch(
 
         loss_x = criterion_l(pred_x, mask_x)
         
-        loss_u_s = criterion_u(pred_u_s, mask_u_w)
-        loss_u_s = loss_u_s * (conf_u_w > cfg['conf_thresh'])
+        loss_u_s = criterion_u(pred_u_s, mask_u_w_cutmixed)
+        loss_u_s = loss_u_s * (conf_u_w_cutmixed > cfg['conf_thresh'])
         loss_u_s = loss_u_s.mean()
 
         loss = (loss_x + loss_u_s) / 2.0            
