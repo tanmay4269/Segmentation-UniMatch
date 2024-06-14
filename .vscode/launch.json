@@ -85,14 +85,16 @@
             "program": "fixmatch.py",
             "args": [
                 "--project_name=ss2-ssl-idx-12",
-                "--model_name=debug-fixmatch-1",
-                "--fast_debug",
-                // "--enable_logging",
+                "--model_name=debug-fixmatch-2",
+                // "--fast_debug",
+                "--enable_logging",
                 // "--use_checkpoint",
 
                 "--dataset=idx_12",
                 "--nclass=3",
+
                 "--num_epochs=100",
+                "--epochs_before_eval=10",
                 "--save_path=exp/idx_12",
             ],
             "justMyCode": false,

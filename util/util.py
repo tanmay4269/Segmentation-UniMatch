@@ -43,6 +43,7 @@ def get_args():
 
     parser.add_argument('--num_samples', type=int, required=False)
     parser.add_argument('--num_epochs', type=int, required=True)
+    parser.add_argument('--epochs_before_eval', type=int, required=True)
     parser.add_argument('--save_path', type=str, required=True)
 
     args = parser.parse_args()

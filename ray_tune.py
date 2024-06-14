@@ -52,7 +52,7 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
 
         scheduler = HyperBandForBOHB(
             max_t=args.num_epochs,
-            reduction_factor=2,
+            reduction_factor=3,
         )
 
     elif args.search_alg == 'hyperopt':
@@ -75,7 +75,7 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
     
     tuner = ray_tune.Tuner(
         ray_tune.with_resources(
-            ray_tune.with_parameters(partial(fixmatch_trainer, ray_train, ray_tune, args)),
+            ray_tune.with_parameters(partial(fixmatch_trainer, ray_train, args)),
             resources={"cpu": 2, "gpu": gpus_per_trial}
         ),
         tune_config=ray_tune.TuneConfig(
@@ -110,6 +110,8 @@ if __name__ == "__main__":
     prev_best_cfgs = [
         {
             'batch_size': 2,
+            'unlabeled_ratio': 10,
+
             'lr': 3e-4,
             'weight_decay': 0,
 
@@ -121,6 +123,8 @@ if __name__ == "__main__":
         },
         {
             'batch_size': 2,
+            'unlabeled_ratio': 10,
+
             'lr': 0.000634,
             'weight_decay': 7.382e-7,
 
@@ -169,10 +173,10 @@ if __name__ == "__main__":
     ]
 
     param_space = {
-        'grand_loss_weights': np.array([1.0, 2.0, 4.0]),
+        'grand_loss_weights': [1.0, 2.0, 4.0],
         'crop_size': 800,
         'batch_size': ray_tune.choice([2, 4]), 
-        'unlabeled_ratio': 10,
+        'unlabeled_ratio': ray_tune.qloguniform(10, 170, 10),
 
         'backbone': 'efficientnet-b0',
         
