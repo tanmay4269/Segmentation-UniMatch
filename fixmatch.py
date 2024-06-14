@@ -95,6 +95,10 @@ def evaluate(
             
             pred = F.interpolate(pred, (h, w), mode='bilinear', align_corners=False)
 
+            if args.nclass == 1:
+                pred = pred.squeeze(1)
+                mask = mask.float()
+
             val_loss = criterion_l(pred, mask)
             total_val_loss.update(val_loss)
 
@@ -111,7 +115,7 @@ def evaluate(
             intersection_meter.update(intersection)
             union_meter.update(union)
 
-    eval_scores = get_eval_scores(intersection_meter, union_meter, cfg)
+    eval_scores = get_eval_scores(intersection_meter, union_meter, args, cfg)
     eval_scores['eval/loss'] = total_val_loss.avg
     eval_scores['eval/loss_var'] = total_val_loss.var
 
@@ -141,7 +145,12 @@ def trainer(ray_train, args, cfg):
 
     if args.nclass == 1:
         # criterion_jaccard = JaccardLoss("binary")
-        pass
+
+        # criterion_l = smp.losses.SoftBCEWithLogitsLoss()
+        # criterion_u = smp.losses.SoftBCEWithLogitsLoss(reduction='none')
+
+        criterion_l = nn.BCEWithLogitsLoss()
+        criterion_u = nn.BCEWithLogitsLoss(reduction='none')
     else:
         # criterion_jaccard = JaccardLoss("multiclass")
         
@@ -153,6 +162,7 @@ def trainer(ray_train, args, cfg):
 
 
     num_labeled = len(os.listdir(os.path.join(args.labeled_data_dir, 'label')))
+    num_labeled_batches = num_labeled // cfg['batch_size']
     num_unlabeled = int(cfg['unlabeled_ratio'] * num_labeled)
 
     trainloader_l, trainloader_u, valloader = load_data(args, cfg, nsample=num_unlabeled)
@@ -190,9 +200,10 @@ def trainer(ray_train, args, cfg):
                 break
 
             if epoch + 1 >= args.num_epochs:
+                epoch += 1
                 break
 
-            if i % num_labeled == 0:
+            if i % num_labeled_batches == 0:
                 epoch += 1
 
                 print(f"Epoch [{epoch}/{args.num_epochs}]\t Previous Best IoU: {locally_best_iou}")
@@ -209,6 +220,7 @@ def trainer(ray_train, args, cfg):
 
                 if args.nclass == 1:
                     # TODO: verify if this works
+                    pred_u_w_mix = pred_u_w_mix.squeeze(1)
                     conf_u_w_mix = pred_u_w_mix.sigmoid()
                     mask_u_w_mix = (conf_u_w_mix > cfg['conf_thresh']).int()
                 else:
@@ -225,11 +237,12 @@ def trainer(ray_train, args, cfg):
             pred_u_s = model(img_u_s)
 
             if args.nclass == 1:
-                pred_u_w = pred_u_w.detach()
+                pred_u_w = pred_u_w.detach().squeeze(1)
                 conf_u_w = pred_u_w.sigmoid()
                 mask_u_w = (conf_u_w > cfg['conf_thresh']).int()  # TODO: change this in fixmatch_wo_cutmix branch as well
 
                 pred_x = pred_x.squeeze(1)
+                pred_u_s = pred_u_s.squeeze(1)
             else:
                 pred_u_w = pred_u_w.detach()
                 conf_u_w = pred_u_w.softmax(dim=1).max(dim=1)[0]
@@ -241,21 +254,26 @@ def trainer(ray_train, args, cfg):
             conf_u_w_cutmixed[cutmix_box == 1] = conf_u_w_mix[cutmix_box == 1]
 
             # Visualising 
-            # if i < 9:
-            if i >= 9 and i < 18:
-                visualise_train(
-                    img_x.clone(), mask_x.clone(), pred_x.clone(),
-                    img_u_s.clone(), mask_u_w_cutmixed.clone(), pred_u_s.clone(),
-                    i, epoch, args, cfg
-                )
+            if epoch > 0 and (epoch+1) % args.epochs_before_eval == 0:
+                epoch_itr = (i % num_labeled_batches) * cfg['batch_size']
+                if (epoch_itr >= 8 and epoch_itr < 16):
+                    visualise_train(
+                        img_x.clone(), mask_x.clone(), pred_x.clone(),
+                        img_u_s.clone(), mask_u_w_cutmixed.clone(), pred_u_s.clone(),
+                        epoch_itr, epoch, args, cfg
+                    )
 
-            loss_x = criterion_l(pred_x, mask_x)
-            
-            loss_u_s = criterion_u(pred_u_s, mask_u_w_cutmixed)
+            if args.nclass == 1:
+                loss_x = criterion_l(pred_x, mask_x.float())
+                loss_u_s = criterion_u(pred_u_s, mask_u_w_cutmixed.float())
+            else:
+                loss_x = criterion_l(pred_x, mask_x)
+                loss_u_s = criterion_u(pred_u_s, mask_u_w_cutmixed)
+
             loss_u_s = loss_u_s * (conf_u_w_cutmixed > cfg['conf_thresh'])
             loss_u_s = loss_u_s.mean()
 
-            loss = (loss_x + loss_u_s) / 2.0            
+            loss = (loss_x + loss_u_s) / 2.0
 
             # Backprop
             optimizer.zero_grad()
@@ -278,15 +296,13 @@ def trainer(ray_train, args, cfg):
             total_mask_ratio.update(mask_ratio)
 
             # debug
-            is_eval_epoch = (epoch > 0) \
-                and (epoch % args.epochs_before_eval == 0) \
-            
+            is_eval_epoch = (epoch > 0) and (epoch % args.epochs_before_eval == 0)
+
             if not is_eval_epoch or \
-                (i % num_labeled * args.epochs_before_eval != 0):
-                
+                (i % num_labeled_batches != 0):
                 continue
 
-            print(f"----- Eval [{epoch}/{args.num_epochs // args.epochs_before_eval}]\t loss_all: {total_loss.val}")
+            print(f"----- Eval [{epoch // args.epochs_before_eval}/{args.num_epochs // args.epochs_before_eval}]\t loss_all: {total_loss.val}")
 
             log({
                 'epoch': epoch,
@@ -383,7 +399,7 @@ def main():
         'backbone': 'efficientnet-b0',
         
         'class_weights': [0.008, 1.0, 0.048],
-        'lr': 1e-4,
+        'lr': 3e-4,
         'lr_multi': 10.0,
         'weight_decay': 1e-9,
         'scheduler': 'poly',

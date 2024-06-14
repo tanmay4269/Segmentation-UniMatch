@@ -28,6 +28,16 @@ def intersectionAndUnion(pred, target, args, cfg):
     pred = pred.reshape(pred.size).copy()
     target = target.reshape(target.size)
     intersection = pred[np.where(pred == target)[0]]
+
+    if args.nclass == 1:
+        pred = pred.astype(np.uint8)
+        intersection = intersection.astype(np.uint8)
+
+        area_intersection = np.logical_and(pred, target).sum()
+        area_union = np.logical_or(pred, target).sum()
+
+        return area_intersection, area_union
+
     area_intersection, _ = np.histogram(intersection, bins=np.arange(nclass + 1))
     area_pred, _ = np.histogram(pred, bins=np.arange(nclass + 1))
     area_target, _ = np.histogram(target, bins=np.arange(nclass + 1))
@@ -35,9 +45,14 @@ def intersectionAndUnion(pred, target, args, cfg):
     return area_intersection, area_union
 
 
-def get_eval_scores(intersection, union, cfg, smooth=1e-10):
+def get_eval_scores(intersection, union, args, cfg, smooth=1e-10):
     iou_class = intersection.sum / (union.sum + smooth)
-    # mIoU = np.mean(iou_class)
+    mIoU = np.mean(iou_class)
+
+    if args.nclass == 1:
+        return {
+            'eval/wIoU': mIoU
+        }
 
     mean_i = intersection.avg
     mean_u = union.avg
@@ -72,8 +87,13 @@ def get_eval_scores(intersection, union, cfg, smooth=1e-10):
 
 def visualise_eval(img, target, pred, idx, epoch, args, cfg):
     img_np = img.detach().cpu().numpy()
-    target_np = F.one_hot(target, args.nclass).detach().cpu().numpy()
-    pred_np = F.one_hot(pred, args.nclass).detach().cpu().numpy()
+
+    if args.nclass > 1:
+        target = F.one_hot(target, args.nclass)
+        pred = F.one_hot(pred, args.nclass)
+
+    target_np = target.detach().cpu().numpy()
+    pred_np = pred.detach().cpu().numpy()
 
     for i in range(img_np.shape[0]):
         img = img_np[i].transpose(1,2,0)
@@ -119,10 +139,16 @@ def visualise_train(
     img_x_np = img_x.detach().cpu().numpy()
     img_u_s_np = img_u_s.detach().cpu().numpy()
 
-    mask_x_np = F.one_hot(mask_x, args.nclass).detach().cpu().numpy()
-    pred_x_np = F.one_hot(pred_x, args.nclass).detach().cpu().numpy()
-    mask_u_w_cutmixed_np = F.one_hot(mask_u_w_cutmixed, args.nclass).detach().cpu().numpy()
-    pred_u_s_np = F.one_hot(pred_u_s, args.nclass).detach().cpu().numpy()
+    if args.nclass > 1:
+        mask_x = F.one_hot(mask_x, args.nclass)
+        pred_x = F.one_hot(pred_x, args.nclass)
+        mask_u_w_cutmixed = F.one_hot(mask_u_w_cutmixed, args.nclass)
+        pred_u_s = F.one_hot(pred_u_s, args.nclass)
+
+    mask_x_np = mask_x.detach().cpu().numpy()
+    pred_x_np = pred_x.detach().cpu().numpy()
+    mask_u_w_cutmixed_np = mask_u_w_cutmixed.detach().cpu().numpy()
+    pred_u_s_np = pred_u_s.detach().cpu().numpy()
 
     for i in range(img_x_np.shape[0]):
         img_x = img_x_np[i].transpose(1,2,0)
@@ -163,6 +189,6 @@ def visualise_train(
         axs[1,2].axis('off')
 
         if args.enable_logging:
-            wandb.log({f"TrainImages/idx_{idx}": wandb.Image(fig)}, commit=False)
+            wandb.log({f"TrainImages/idx_{idx}_{i}": wandb.Image(fig)}, commit=False)
         
         plt.close(fig)

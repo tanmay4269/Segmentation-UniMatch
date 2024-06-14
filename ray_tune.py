@@ -103,7 +103,7 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
     print("Best trial grand loss: {}".format(best_result.metrics["main/grand_loss"]))
     print("Best trial final training loss: {}".format(best_result.metrics["epoch_train/loss"]))
     print("Best trial final validation loss: {}".format(best_result.metrics["eval/loss"]))
-    print("Best trial final validation accuracy: {}".format(best_result.metrics["eval/wIoU"]))
+    print("Best trial final validation wIoU: {}".format(best_result.metrics["eval/wIoU"]))
 
 
 if __name__ == "__main__":
@@ -113,7 +113,7 @@ if __name__ == "__main__":
             'unlabeled_ratio': 10,
 
             'lr': 3e-4,
-            'weight_decay': 0,
+            'weight_decay': 1e-9,
 
             'conf_thresh': 0.95,
             'p_jitter': 0.8,
