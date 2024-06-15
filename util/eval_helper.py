@@ -30,8 +30,8 @@ def intersectionAndUnion(pred, target, args, cfg):
     intersection = pred[np.where(pred == target)[0]]
 
     if args.nclass == 1:
-        pred = pred.astype(np.uint8)
-        intersection = intersection.astype(np.uint8)
+        pred = (pred > 0).astype(np.uint8)
+        intersection = (intersection > 0).astype(np.uint8)
 
         area_intersection = np.logical_and(pred, target).sum()
         area_union = np.logical_or(pred, target).sum()
@@ -46,7 +46,7 @@ def intersectionAndUnion(pred, target, args, cfg):
 
 
 def get_eval_scores(intersection, union, args, cfg, smooth=1e-10):
-    iou_class = intersection.sum / (union.sum + smooth)
+    iou_class = intersection.sum / union.sum if union.sum != 0 else 0
     mIoU = np.mean(iou_class)
 
     if args.nclass == 1:

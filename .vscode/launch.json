@@ -15,7 +15,6 @@
                 "--model_name=debug-fixmatch-2",
                 // "--fast_debug",
                 "--enable_logging",
-                // "--enable_logging",
 
                 "--dataset=idx_3",
                 "--nclass=1",

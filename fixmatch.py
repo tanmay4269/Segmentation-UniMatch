@@ -11,20 +11,19 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# smp
+import segmentation_models_pytorch as smp
+
 # Data
 from torch.utils.data import DataLoader
 from dataset.kerogens import KerogensDataset
 
-# smp
-import segmentation_models_pytorch as smp
-from segmentation_models_pytorch.losses import JaccardLoss
-
-# utils
+# Utils
 from util.util import *
 from util.train_helper import *
 from util.eval_helper import *
 
-# ray
+# Ray
 from ray.train import Checkpoint
 
 globally_best_iou = 0
@@ -144,19 +143,12 @@ def trainer(ray_train, args, cfg):
     class_weights = torch.tensor(cfg['class_weights']).float().cuda()
 
     if args.nclass == 1:
-        # criterion_jaccard = JaccardLoss("binary")
+        # criterion_l = nn.BCEWithLogitsLoss()
+        # criterion_u = nn.BCEWithLogitsLoss(reduction='none')
 
-        # criterion_l = smp.losses.SoftBCEWithLogitsLoss()
-        # criterion_u = smp.losses.SoftBCEWithLogitsLoss(reduction='none')
-
-        criterion_l = nn.BCEWithLogitsLoss()
-        criterion_u = nn.BCEWithLogitsLoss(reduction='none')
+        criterion_l = smp.losses.FocalLoss('binary')
+        criterion_u = smp.losses.FocalLoss('binary') # , reduction='none')
     else:
-        # criterion_jaccard = JaccardLoss("multiclass")
-        
-        # criterion_l = criterion_jaccard
-        # criterion_u = criterion_jaccard
-
         criterion_l = nn.CrossEntropyLoss(class_weights)
         criterion_u = nn.CrossEntropyLoss(class_weights, reduction='none')
 
@@ -222,7 +214,7 @@ def trainer(ray_train, args, cfg):
                     # TODO: verify if this works
                     pred_u_w_mix = pred_u_w_mix.squeeze(1)
                     conf_u_w_mix = pred_u_w_mix.sigmoid()
-                    mask_u_w_mix = (conf_u_w_mix > cfg['conf_thresh']).int()
+                    mask_u_w_mix = (pred_u_w_mix > 0).int()  # (conf_u_w_mix > cfg['conf_thresh']).int()
                 else:
                     conf_u_w_mix = pred_u_w_mix.softmax(dim=1).max(dim=1)[0]
                     mask_u_w_mix = pred_u_w_mix.argmax(dim=1)
@@ -239,7 +231,7 @@ def trainer(ray_train, args, cfg):
             if args.nclass == 1:
                 pred_u_w = pred_u_w.detach().squeeze(1)
                 conf_u_w = pred_u_w.sigmoid()
-                mask_u_w = (conf_u_w > cfg['conf_thresh']).int()  # TODO: change this in fixmatch_wo_cutmix branch as well
+                mask_u_w = (pred_u_w > 0).int()  # (conf_u_w > cfg['conf_thresh']).int()
 
                 pred_x = pred_x.squeeze(1)
                 pred_u_s = pred_u_s.squeeze(1)
@@ -295,7 +287,6 @@ def trainer(ray_train, args, cfg):
             mask_ratio = (conf_u_w > cfg['conf_thresh']).float().mean().item()
             total_mask_ratio.update(mask_ratio)
 
-            # debug
             is_eval_epoch = (epoch > 0) and (epoch % args.epochs_before_eval == 0)
 
             if not is_eval_epoch or \
@@ -399,14 +390,14 @@ def main():
         'backbone': 'efficientnet-b0',
         
         'class_weights': [0.008, 1.0, 0.048],
-        'lr': 3e-4,
+        'lr': 2.7e-4,
         'lr_multi': 10.0,
         'weight_decay': 1e-9,
         'scheduler': 'poly',
 
         'conf_thresh': 0.95,
-        'p_jitter': 0.8,
-        'p_gray': 0.2,
+        'p_jitter': 0.2,
+        'p_gray': 0.0,
         'p_blur': 0.5,
         'p_cutmix': 0.5,
     }
