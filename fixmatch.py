@@ -44,27 +44,33 @@ def load_data(args, cfg, nsample):
     trainset_u = KerogensDataset(
         args.unlabeled_data_dir, 'train_u', 
         args, cfg,
-        cfg['crop_size'], nsample)
+        cfg['crop_size'], nsample
+    )
     trainset_l = KerogensDataset(
         args.labeled_data_dir, 'train_l', 
         args, cfg,
-        cfg['crop_size'], nsample)
+        cfg['crop_size'], nsample
+    )
     valset = KerogensDataset(
         args.val_data_dir, 'val',
-        args, cfg)
+        args, cfg
+    )
 
     # Dataloaders
     trainloader_u = DataLoader(
         trainset_u, batch_size=cfg['batch_size'],
-        pin_memory=True, num_workers=1, drop_last=True)
+        pin_memory=True, num_workers=1, drop_last=True
+    )
 
     trainloader_l = DataLoader(
         trainset_l, batch_size=cfg['batch_size'],
-        pin_memory=True, num_workers=1, drop_last=True)
+        pin_memory=True, num_workers=1, drop_last=True
+    )
 
     valloader = DataLoader(
         valset, batch_size=1, pin_memory=True, num_workers=1,
-        drop_last=False)
+        drop_last=False
+    )
     
     return trainloader_l, trainloader_u, valloader
 
@@ -128,6 +134,44 @@ def evaluate(
         'eval/wIoU': wIoU
     } 
 
+
+# TODO: test if this function works
+def generate_test_outputs(checkpoint_path, output_save_path, args, cfg):
+    testset = KerogensDataset(
+        args.test_data_dir, 'test',
+        args, cfg
+    )
+
+    testloader = DataLoader(
+        testset, batch_size=1, pin_memory=True, 
+        num_workers=1, drop_last=False
+    )
+
+    model = init_model(args.nclass, cfg['backbone'], checkpoint_path)
+
+    with torch.no_grad():
+        for path, img in testloader:
+            raw_img = img.cuda()
+
+            h, w = raw_img.shape[-2:]
+            img = F.interpolate(raw_img, (cfg['crop_size'], cfg['crop_size']), mode='bilinear', align_corners=False)
+
+            pred = model(img)
+            pred = F.interpolate(pred, (h, w), mode='bilinear', align_corners=False)
+
+            if args.nclass == 1:
+                pred = (pred.sigmoid() > cfg['conf_thresh']).int() * 3  # since idx_3
+            else:
+                pred = pred.argmax(dim=1)
+
+            pred_np = pred.detach().cpu().numpy()
+
+            file_name, _ = os.path.splitext(path)
+            output_path = os.path.join(output_save_path, file_name)
+            np.save(output_path, pred_np)
+
+
+
 def trainer(ray_train, args, cfg):
     assert cfg['unlabeled_ratio'] % args.epochs_before_eval == 0, \
         "The chosen `unlabeled_ratio` is not a multiple of `epochs_before_eval`"
@@ -163,15 +207,6 @@ def trainer(ray_train, args, cfg):
 
     locally_best_iou = 0
     epoch = -1
-
-    if args.use_checkpoint and os.path.exists(os.path.join(args.save_path, 'latest.pth')):
-        checkpoint = torch.load(os.path.join(args.save_path, 'latest.pth'))
-        model.load_state_dict(checkpoint['model'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        epoch = checkpoint['epoch']
-        locally_best_iou = checkpoint['locally_best_iou']
-
-        print(f"Loading checkpoint from epoch: {epoch}")
 
     total_loss  = AverageMeter(track_variance=True)
     total_loss_x = AverageMeter(track_variance=True)
@@ -390,14 +425,16 @@ def main():
         'backbone': 'efficientnet-b0',
         
         'class_weights': [0.008, 1.0, 0.048],
-        'lr': 2.7e-4,
+        
+        'lr': 0.0003,
         'lr_multi': 10.0,
         'weight_decay': 1e-9,
+
         'scheduler': 'poly',
 
         'conf_thresh': 0.95,
-        'p_jitter': 0.2,
-        'p_gray': 0.0,
+        'p_jitter': 0.8,
+        'p_gray': 0.2,
         'p_blur': 0.5,
         'p_cutmix': 0.5,
     }
@@ -407,4 +444,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+
+    generate_test_outputs()

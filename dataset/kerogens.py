@@ -47,7 +47,7 @@ class KerogensDataset(Dataset):
         self.masks_dir = os.path.join(data_root, 'label')
         self.masks = sorted(os.listdir(self.masks_dir))
 
-        if mode == 'val':
+        if mode == 'val' or mode == 'test':
             return
 
         if nsample:
@@ -67,7 +67,7 @@ class KerogensDataset(Dataset):
                 mask_np = mask_np / 3
             mask = Image.fromarray(mask_np)
 
-        if self.mode == 'val':
+        if self.mode == 'val' or self.mode == 'test':
             img, mask = normalize(img, mask)
             return idx, img, mask
 

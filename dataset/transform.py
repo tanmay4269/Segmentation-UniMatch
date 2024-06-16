@@ -41,6 +41,7 @@ def normalize(img, mask=None):
         transforms.ToTensor(),
         # transforms.Normalize(mean=mean, std=std),
     ])(img)
+
     if mask is not None:
         mask = torch.from_numpy(np.array(mask)).long()
         return img, mask

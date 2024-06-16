@@ -108,66 +108,12 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
 
 if __name__ == "__main__":
     prev_best_cfgs = [
-        # {
-        #     'unlabeled_ratio': 10,
-
-        #     'lr': 3e-4,
-        #     'weight_decay': 1e-9,
-
-        #     'conf_thresh': 0.95,
-        #     'p_jitter': 0.8,
-        #     'p_gray': 0.2,
-        #     'p_blur': 0.5,
-        #     'p_cutmix': 0.5,
-        # },
         {
             'unlabeled_ratio': 10,
-
             'lr': 0.000634,
             'weight_decay': 7.382e-7,
-
             'conf_thresh': 0.56,
-            'p_jitter': 0.795,
-            'p_gray': 0.6707,
-            'p_blur': 0.01434,
-            'p_cutmix': 0.5,
-        },
-        # {
-        #     'lr': 0.0001481,
-        #     'weight_decay': 1.583e-9,
-
-        #     'conf_thresh': 0.7829,
-        #     'p_jitter': 0.3186,
-        #     'p_gray': 0.6534,
-        #     'p_blur': 0.2515,
-        # },
-        # {
-        #     'lr': 0.0003784,
-        #     'weight_decay': 1.071e-7,
-
-        #     'conf_thresh': 0.6786,
-        #     'p_jitter': 0.01492,
-        #     'p_gray': 0.07219,
-        #     'p_blur': 0.5036,
-        # },
-        # {
-        #     'lr': 0.000711,
-        #     'weight_decay': 1.652e-8,
-
-        #     'conf_thresh': 0.8653,
-        #     'p_jitter': 0.006844,
-        #     'p_gray': 0.6599,
-        #     'p_blur': 0.4109,
-        # },
-        # {
-        #     'lr': 0.0008521,
-        #     'weight_decay': 1.897e-7,
-
-        #     'conf_thresh': 0.5874,
-        #     'p_jitter': 0.4585,
-        #     'p_gray': 0.6214,
-        #     'p_blur': 0.2818,
-        # },
+        }
     ]
 
     param_space = {
@@ -181,14 +127,21 @@ if __name__ == "__main__":
         'class_weights': [0.008, 1.0, 0.048],
         'lr': ray_tune.loguniform(1e-5, 1e-3),
         'lr_multi': 10.0,
+
         'weight_decay': ray_tune.loguniform(1e-9, 1e-5),
+
         'scheduler': 'poly',
 
-        'conf_thresh': ray_tune.loguniform(0.8, 0.99),
-        'p_jitter': ray_tune.uniform(0.0, 0.8),
-        'p_gray': ray_tune.uniform(0.0, 0.8),
-        'p_blur': ray_tune.uniform(0.0, 0.8),
-        'p_cutmix': ray_tune.uniform(0.0, 0.8)
+        'conf_thresh': ray_tune.loguniform(0.5, 0.99),
+        'p_jitter': 0.795,
+        'p_gray': 0.6707,
+        'p_blur': 0.01434,
+        'p_cutmix': 0.5,
+
+        # 'p_jitter': ray_tune.uniform(0.0, 0.8),
+        # 'p_gray': ray_tune.uniform(0.0, 0.8),
+        # 'p_blur': ray_tune.uniform(0.0, 0.8),
+        # 'p_cutmix': ray_tune.uniform(0.0, 0.8),
     }
 
     """

@@ -8,12 +8,6 @@ import segmentation_models_pytorch as smp
 
 from util.util import *
 
-def dice_coefficient(tp, fp, fn, tn, smooth=1e-6):
-    tp = tp.sum()
-    fp = fp.sum()
-    fn = fn.sum()
-    return ((2 * tp + smooth) / (2 * tp + fp + fn + smooth)).item()
-
 
 def intersectionAndUnion(pred, target, args, cfg):
     nclass = args.nclass
@@ -46,7 +40,7 @@ def intersectionAndUnion(pred, target, args, cfg):
 
 
 def get_eval_scores(intersection, union, args, cfg, smooth=1e-10):
-    iou_class = intersection.sum / union.sum if union.sum != 0 else 0
+    iou_class = (intersection.sum + smooth) / (union.sum + smooth)
     mIoU = np.mean(iou_class)
 
     if args.nclass == 1:

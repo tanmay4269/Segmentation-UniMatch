@@ -4,13 +4,17 @@ from torch.optim import Adam
 import torch.nn.functional as F
 import segmentation_models_pytorch as smp
 
-def init_model(nclass, backbone):
+def init_model(nclass, backbone, checkpoint_path=None):
     model = smp.DeepLabV3Plus(
         encoder_name=backbone,
         encoder_weights="imagenet",
         in_channels=3,
         classes=nclass,
     )
+
+    if checkpoint_path:
+        checkpoint = torch.load(checkpoint_path)
+        model.load_state_dict(checkpoint['model'])
 
     return model.cuda()
 

@@ -16,7 +16,7 @@ python ray_tune_idx_12.py \
     --dataset=idx_12 \
     --nclass=3 \
     \
-    --num_samples=20 \
+    --num_samples=5 \
     --num_epochs=200 \
     --epochs_before_eval=5 \
     --save_path=$save_path \
