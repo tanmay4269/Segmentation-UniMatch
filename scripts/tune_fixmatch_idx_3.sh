@@ -9,14 +9,14 @@ export CUDA_VISIBLE_DEVICES=2
 
 python ray_tune_idx_3.py \
     --project_name=ss2-ssl-idx-3 \
-    --model_name=fixmatch-w-cutmix-1 \
+    --model_name=fixmatch-w-cutmix-2 \
     --search_alg=bohb \
     --enable_logging \
     \
     --dataset=idx_3 \
     --nclass=1 \
     \
-    --num_samples=20 \
+    --num_samples=50 \
     --num_epochs=200 \
     --epochs_before_eval=5 \
     --save_path=$save_path \

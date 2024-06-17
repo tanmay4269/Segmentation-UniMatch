@@ -1,5 +1,7 @@
 __pycache__/
 **/__pycache__/
+best_weights
 dataset/kerogens
 wandb
 exp
+outputs

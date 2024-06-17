@@ -33,14 +33,27 @@ def hflip(img, mask=None, p=0.5):
     return img, mask
 
 
-def normalize(img, mask=None):
-    mean = [0.4568460192117426, 0.41798985112044545, 0.3875911375714673]
-    std = [0.2023514897459083, 0.19046952029069264, 0.17788408589031962]
-    
-    img = transforms.Compose([
+def normalize(args, cfg, img, mask=None):
+    mean_12 = [0.48906528337134253, 0.44708340242505074, 0.41347014026509393]
+    std_12 = [0.1776324207170142, 0.1674080609033505, 0.15651418413552973]
+
+    mean_3 = [0.4065893 , 0.28742657, 0.04781261]
+    std_3 = [0.17281745, 0.14731901, 0.03354312]
+
+    transforms_list = [
         transforms.ToTensor(),
-        # transforms.Normalize(mean=mean, std=std),
-    ])(img)
+    ]
+    if cfg['use_data_normalization']:
+        if args.dataset == 'idx_12':
+            mean = mean_12
+            std = std_12
+        else: 
+            mean = mean_3
+            std = std_3
+        
+        transforms_list.append(transforms.Normalize(mean=mean, std=std))
+
+    img = transforms.Compose(transforms_list)(img)
 
     if mask is not None:
         mask = torch.from_numpy(np.array(mask)).long()

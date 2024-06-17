@@ -33,7 +33,7 @@ def set_seed(seed=42):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
+    torch.cuda.manual_seed_all(seed)  # for multi-GPU.
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
@@ -108,7 +108,8 @@ def evaluate(
             total_val_loss.update(val_loss)
 
             if args.nclass == 1:
-                pred = pred.sigmoid() > cfg['conf_thresh']
+                # pred = (pred.sigmoid() > cfg['conf_thresh']).int()
+                pred = (pred.sigmoid() > 0).int()
             else:
                 # pred = (pred.softmax(dim=1) > cfg['conf_thresh']).int()
                 pred = pred.argmax(dim=1)  # TODO: check if this works
@@ -136,7 +137,16 @@ def evaluate(
 
 
 # TODO: test if this function works
-def generate_test_outputs(checkpoint_path, output_save_path, args, cfg):
+def generate_test_outputs(
+        checkpoint_path, 
+        output_dir, 
+        args, cfg
+    ):
+    submission_dir = 'outputs/submission/'
+    
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(submission_dir, exist_ok=True)
+
     testset = KerogensDataset(
         args.test_data_dir, 'test',
         args, cfg
@@ -149,8 +159,9 @@ def generate_test_outputs(checkpoint_path, output_save_path, args, cfg):
 
     model = init_model(args.nclass, cfg['backbone'], checkpoint_path)
 
+    model.eval()
     with torch.no_grad():
-        for path, img in testloader:
+        for filename, img in testloader:
             raw_img = img.cuda()
 
             h, w = raw_img.shape[-2:]
@@ -160,15 +171,17 @@ def generate_test_outputs(checkpoint_path, output_save_path, args, cfg):
             pred = F.interpolate(pred, (h, w), mode='bilinear', align_corners=False)
 
             if args.nclass == 1:
-                pred = (pred.sigmoid() > cfg['conf_thresh']).int() * 3  # since idx_3
+                # pred = (pred.sigmoid() > cfg['conf_thresh']).int() * 3  # since idx_3
+                pred = (pred.sigmoid() > 0).int() * 3
+                pred = pred.squeeze(1)
             else:
                 pred = pred.argmax(dim=1)
 
-            pred_np = pred.detach().cpu().numpy()
+            filename = filename[0] + "_pred"
+            visualise_test(raw_img, pred, os.path.join(output_dir, filename), args, cfg)
 
-            file_name, _ = os.path.splitext(path)
-            output_path = os.path.join(output_save_path, file_name)
-            np.save(output_path, pred_np)
+            pred_np = pred.detach().cpu().numpy()
+            np.save(os.path.join(submission_dir, filename), pred_np)
 
 
 
@@ -187,11 +200,11 @@ def trainer(ray_train, args, cfg):
     class_weights = torch.tensor(cfg['class_weights']).float().cuda()
 
     if args.nclass == 1:
-        # criterion_l = nn.BCEWithLogitsLoss()
-        # criterion_u = nn.BCEWithLogitsLoss(reduction='none')
+        criterion_l = nn.BCEWithLogitsLoss()
+        criterion_u = nn.BCEWithLogitsLoss(reduction='none')
 
-        criterion_l = smp.losses.FocalLoss('binary')
-        criterion_u = smp.losses.FocalLoss('binary') # , reduction='none')
+        # criterion_l = smp.losses.FocalLoss('binary')
+        # criterion_u = smp.losses.FocalLoss('binary') # , reduction='none')
     else:
         criterion_l = nn.CrossEntropyLoss(class_weights)
         criterion_u = nn.CrossEntropyLoss(class_weights, reduction='none')
@@ -432,6 +445,8 @@ def main():
 
         'scheduler': 'poly',
 
+        'use_data_normalization': True,
+
         'conf_thresh': 0.95,
         'p_jitter': 0.8,
         'p_gray': 0.2,
@@ -439,11 +454,23 @@ def main():
         'p_cutmix': 0.5,
     }
 
-    trainer(None, args, config)
+    # trainer(None, args, config)
+
+    if args.dataset == 'idx_12':
+        generate_test_outputs(
+            checkpoint_path="best_weights/idx_12/12a251be.pth",
+            output_dir="outputs/idx_12/",
+            args=args, cfg=config
+        )
+    elif args.dataset == 'idx_3':
+        generate_test_outputs(
+            checkpoint_path="best_weights/idx_3/42e40060.pth",
+            output_dir="outputs/idx_3/",
+            args=args, cfg=config
+        )
+
     print("="*20)
 
 
 if __name__ == "__main__":
-    # main()
-
-    generate_test_outputs()
+    main()

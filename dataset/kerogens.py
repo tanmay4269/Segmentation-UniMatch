@@ -31,6 +31,9 @@ class KerogensDataset(Dataset):
         self.mode = mode
         self.size = size
 
+        self.args = args
+        self.cfg = cfg
+
         self.p_jitter = cfg['p_jitter']
         self.p_gray = cfg['p_gray']
         self.p_blur = cfg['p_blur']
@@ -44,10 +47,13 @@ class KerogensDataset(Dataset):
                 self.images = self.images[:nsample]
             return
         
+        if mode == 'test':
+            return
+
         self.masks_dir = os.path.join(data_root, 'label')
         self.masks = sorted(os.listdir(self.masks_dir))
 
-        if mode == 'val' or mode == 'test':
+        if mode == 'val':
             return
 
         if nsample:
@@ -60,15 +66,21 @@ class KerogensDataset(Dataset):
         img = Image.open(img_path)
         
         mask = None
-        if self.mode != 'train_u':
+        if self.mode != 'train_u' and self.mode != 'test':
             mask_path = os.path.join(self.masks_dir, self.masks[idx])
             mask_np = np.load(mask_path)
             if self.dataset_name == 'idx_3':
                 mask_np = mask_np / 3
             mask = Image.fromarray(mask_np)
 
-        if self.mode == 'val' or self.mode == 'test':
-            img, mask = normalize(img, mask)
+        if self.mode == 'test':
+            img = normalize(self.args, self.cfg, img)
+            _, img_file = os.path.split(img_path)
+            file_name, _ = os.path.splitext(img_file)
+            return file_name, img
+        
+        if self.mode == 'val':
+            img, mask = normalize(self.args, self.cfg, img, mask)
             return idx, img, mask
 
         img, mask = resize(img, mask, (0.5, 2.0))
@@ -76,7 +88,7 @@ class KerogensDataset(Dataset):
         img, mask = hflip(img, mask, p=0.5)
 
         if self.mode == 'train_l':
-            return normalize(img, mask)
+            return normalize(self.args, self.cfg, img, mask)
 
         img_w, img_s1, img_s2 = deepcopy(img), deepcopy(img), deepcopy(img)
 
@@ -92,10 +104,10 @@ class KerogensDataset(Dataset):
         img_s2 = blur(img_s2, p=0.5)
         cutmix_box2 = obtain_cutmix_box(img_s2.size[0], p=0.5)
 
-        img_s1 = normalize(img_s1)
-        img_s2 = normalize(img_s2)
+        img_s1 = normalize(self.args, self.cfg, img_s1)
+        img_s2 = normalize(self.args, self.cfg, img_s2)
 
-        return normalize(img_w), img_s1, img_s2, cutmix_box1, cutmix_box2
+        return normalize(self.args, self.cfg, img_w), img_s1, img_s2, cutmix_box1, cutmix_box2
 
     def __len__(self):
         return len(self.images)

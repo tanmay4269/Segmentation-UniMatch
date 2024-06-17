@@ -112,8 +112,74 @@ if __name__ == "__main__":
             'unlabeled_ratio': 10,
             'lr': 0.000634,
             'weight_decay': 7.382e-7,
+            'use_data_normalization': True, 
+
             'conf_thresh': 0.56,
-        }
+            'p_jitter': 0.795,
+            'p_gray': 0.6707,
+            'p_blur': 0.01434,
+            'p_cutmix': 0.0,
+        },
+        {
+            'unlabeled_ratio': 10,
+            'lr': 3e-4,
+            'weight_decay': 1e-9,
+            'use_data_normalization': True, 
+            
+            'conf_thresh': 0.95,
+            'p_jitter': 0.8,
+            'p_gray': 0.5,
+            'p_blur': 0.2,
+            'p_cutmix': 0.0,
+        },
+        {
+            'unlabeled_ratio': 10,
+            'lr': 0.000634,
+            'weight_decay': 7.382e-7,
+            'use_data_normalization': False, 
+
+            'conf_thresh': 0.56,
+            'p_jitter': 0.795,
+            'p_gray': 0.6707,
+            'p_blur': 0.01434,
+            'p_cutmix': 0.5,
+        },
+        {
+            'unlabeled_ratio': 10,
+            'lr': 3e-4,
+            'weight_decay': 1e-9,
+            'use_data_normalization': False, 
+            
+            'conf_thresh': 0.95,
+            'p_jitter': 0.8,
+            'p_gray': 0.5,
+            'p_blur': 0.2,
+            'p_cutmix': 0.5,
+        },
+        {
+            'unlabeled_ratio': 10,
+            'lr': 0.000634,
+            'weight_decay': 7.382e-7,
+            'use_data_normalization': False, 
+
+            'conf_thresh': 0.56,
+            'p_jitter': 0.795,
+            'p_gray': 0.6707,
+            'p_blur': 0.01434,
+            'p_cutmix': 0.8,
+        },
+        {
+            'unlabeled_ratio': 10,
+            'lr': 3e-4,
+            'weight_decay': 1e-9,
+            'use_data_normalization': False, 
+            
+            'conf_thresh': 0.95,
+            'p_jitter': 0.8,
+            'p_gray': 0.5,
+            'p_blur': 0.2,
+            'p_cutmix': 0.8,
+        },
     ]
 
     param_space = {
@@ -132,39 +198,13 @@ if __name__ == "__main__":
 
         'scheduler': 'poly',
 
+        'use_data_normalization': ray_tune.choice([False, True]),
+
         'conf_thresh': ray_tune.loguniform(0.5, 0.99),
-        'p_jitter': 0.795,
-        'p_gray': 0.6707,
-        'p_blur': 0.01434,
-        'p_cutmix': 0.5,
-
-        # 'p_jitter': ray_tune.uniform(0.0, 0.8),
-        # 'p_gray': ray_tune.uniform(0.0, 0.8),
-        # 'p_blur': ray_tune.uniform(0.0, 0.8),
-        # 'p_cutmix': ray_tune.uniform(0.0, 0.8),
+        'p_jitter': ray_tune.uniform(0.0, 0.8),
+        'p_gray': ray_tune.uniform(0.0, 0.8),
+        'p_blur': ray_tune.uniform(0.0, 0.8),
+        'p_cutmix': ray_tune.uniform(0.0, 0.8),
     }
-
-    """
-    param_space = {
-        'grand_loss_weights': np.array([1.0, 2.0, 4.0]),
-        'crop_size': 800,
-        'batch_size': 2, 
-        'unlabeled_ratio': 10,
-
-        'backbone': 'efficientnet-b0',
-        
-        'class_weights': [0.008, 1.0, 0.048],
-        'lr': hp.loguniform('lr', 1e-5, 1e-3),
-        'lr_multi': 10.0,
-        'weight_decay': hp.loguniform('weight_decay', 1e-9, 1e-5),
-        'scheduler': 'poly',
-
-        'conf_thresh': hp.qloguniform('conf_thresh', 0.5, 0.99, 0.01),
-        'p_jitter': hp.quniform('p_jitter', 0.0, 0.8, 0.1),
-        'p_gray': hp.quniform('p_gray', 0.0, 0.8, 0.1),
-        'p_blur': hp.quniform('p_blur', 0.0, 0.8, 0.1),
-        'p_cutmix': hp.quniform('p_cutmix', 0.0, 0.8, 0.1)
-    }
-    """
 
     main(prev_best_cfgs, param_space, gpus_per_trial=0.5)

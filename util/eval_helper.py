@@ -96,6 +96,9 @@ def visualise_eval(img, target, pred, idx, epoch, args, cfg):
 
         fig, axs = plt.subplots(1, 3, figsize=(15, 5))
         fig.suptitle(f'Val Epoch {epoch}')
+
+        img -= img.min()
+        img /= img.max()
         axs[0].imshow(img)
         axs[0].set_title('Image')
         axs[0].axis('off')
@@ -111,6 +114,38 @@ def visualise_eval(img, target, pred, idx, epoch, args, cfg):
         if args.enable_logging:
             wandb.log({f"ValImages/idx_{idx.item()}": wandb.Image(fig)}, commit=False)
         
+        plt.close(fig)
+
+    
+def visualise_test(img, pred, save_path, args, cfg):
+    img_np = img.detach().cpu().numpy()
+
+    if args.nclass > 1:
+        pred = F.one_hot(pred, args.nclass)
+
+    pred_np = pred.detach().cpu().numpy()
+
+    for i in range(img_np.shape[0]):
+        img = img_np[i].transpose(1,2,0)
+        pred = 255 * pred_np[i]
+
+        fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+        fig.suptitle(f'{save_path}')
+
+        img -= img.min()
+        img /= img.max()
+        axs[0].imshow(img)
+        axs[0].set_title('Image')
+        axs[0].axis('off')
+
+        axs[1].imshow(pred, cmap='gray')
+        axs[1].set_title('Predicted Mask')
+        axs[1].axis('off')
+
+        # if args.enable_logging:
+        #     wandb.log({f"TestImages/{filename}": wandb.Image(fig)}, commit=False)
+
+        plt.savefig(save_path)
         plt.close(fig)
 
 
@@ -157,6 +192,8 @@ def visualise_train(
         fig.suptitle(f'Train Epoch {epoch}')
 
         # Labeled
+        img_x -= img_x.min()
+        img_x /= img_x.max()
         axs[0,0].imshow(img_x)
         axs[0,0].set_title('img_x')
         axs[0,0].axis('off')
@@ -170,6 +207,8 @@ def visualise_train(
         axs[0,2].axis('off')
 
         # Unlabeled Strong Augmentation
+        img_u_s -= img_u_s.min()
+        img_u_s /= img_u_s.max()
         axs[1,0].imshow(img_u_s)
         axs[1,0].set_title('img_u_s')
         axs[1,0].axis('off')

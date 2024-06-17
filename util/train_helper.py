@@ -38,10 +38,13 @@ def init_optimizer(model, cfg):
     return optimizer
 
 def get_mean_std_classweights(loader, args):
-    mean = np.zeros(args.nclass)
-    std = np.zeros(args.nclass)
+    mean = np.zeros(3)
+    std = np.zeros(3)
 
-    total_counts = np.zeros(args.nclass)
+    if args.nclass == 1:
+        total_counts = np.zeros(args.nclass + 1)
+    else:
+        total_counts = np.zeros(args.nclass)
 
     for img, mask in loader:
         mean += torch.mean(img, dim=(0, 2, 3)).numpy()
