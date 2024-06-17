@@ -98,11 +98,11 @@ class KerogensDataset(Dataset):
         img_s1 = blur(img_s1, p=self.p_blur)
         cutmix_box1 = obtain_cutmix_box(img_s1.size[0], p=self.p_cutmix)
 
-        if random.random() < 0.8:
+        if random.random() < self.p_jitter:
             img_s2 = transforms.ColorJitter(0.5, 0.5, 0.5, 0.25)(img_s2)
-        img_s2 = transforms.RandomGrayscale(p=0.2)(img_s2)
-        img_s2 = blur(img_s2, p=0.5)
-        cutmix_box2 = obtain_cutmix_box(img_s2.size[0], p=0.5)
+        img_s2 = transforms.RandomGrayscale(p=self.p_gray)(img_s2)
+        img_s2 = blur(img_s2, p=self.p_blur)
+        cutmix_box2 = obtain_cutmix_box(img_s2.size[0], p=self.p_cutmix)
 
         img_s1 = normalize(self.args, self.cfg, img_s1)
         img_s2 = normalize(self.args, self.cfg, img_s2)

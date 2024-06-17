@@ -2,6 +2,56 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "unimatch-idx-12",
+            "type": "debugpy",
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "1",
+            },
+            "request": "launch",
+            "program": "unimatch.py",
+            "args": [
+                "--project_name=ss2-ssl-idx-12",
+                "--model_name=unimatch-1",
+                // "--fast_debug",
+                "--enable_logging",
+
+                "--dataset=idx_12",
+                "--nclass=3",
+
+                "--num_epochs=100",
+                "--epochs_before_eval=5",
+                "--save_path=exp/idx_12",
+            ],
+            "justMyCode": false,
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "unimatch-idx-3",
+            "type": "debugpy",
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0",
+            },
+            "request": "launch",
+            "program": "unimatch.py",
+            "args": [
+                "--project_name=ss2-ssl-idx-3",
+                "--model_name=unimatch-1",
+                // "--fast_debug",
+                "--enable_logging",
+
+                "--dataset=idx_3",
+                "--nclass=1",
+
+                "--num_epochs=100",
+                "--epochs_before_eval=5",
+                "--save_path=exp/idx_3",
+            ],
+            "justMyCode": false,
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        },
+        {
             "name": "fixmatch-idx-12",
             "type": "debugpy",
             "env": {

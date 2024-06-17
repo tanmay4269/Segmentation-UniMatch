@@ -9,7 +9,7 @@ export CUDA_VISIBLE_DEVICES=1
 
 python ray_tune_idx_12.py \
     --project_name=ss2-ssl-idx-12 \
-    --model_name=fixmatch-w-cutmix-4 \
+    --model_name=fixmatch-w-cutmix-5 \
     --search_alg=bohb \
     --enable_logging \
     \

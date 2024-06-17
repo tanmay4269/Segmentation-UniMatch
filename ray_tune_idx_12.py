@@ -109,55 +109,20 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
 if __name__ == "__main__":
     prev_best_cfgs = [
         {
-            'grand_loss_weights': [1.0, 2.0, 4.0], 
-            'crop_size': 800, 
-            'batch_size': 2, 
-            'unlabeled_ratio': 90.0, 
-            
-            'backbone': 'efficientnet-b0', 
-            
-            'class_weights': [0.008, 1.0, 0.048], 
+            'class_weights_idx_2': 0.05,
             
             'lr': 0.0006641655771494509, 
-            'lr_multi': 10.0, 
             'weight_decay': 6.090603815955617e-07, 
-            'scheduler': 'poly', 
-            'use_data_normalization': True,
 
             'conf_thresh': 0.5403738832570637, 
             'p_jitter': 0.7497370506266263, 
             'p_gray': 0.42058359750430085, 
             'p_blur': 0.6580713163389718, 
-            'p_cutmix': 0.5427814390069718
+            'p_cutmix': 0.5427814390069718,
+
+            'output_thresh': 0.6
         }
     ]
-
-    '''
-    param_space = {
-        'grand_loss_weights': [1.0, 2.0, 4.0],
-        'crop_size': 800,
-        'batch_size': 2, 
-        'unlabeled_ratio': ray_tune.qloguniform(10, 170, 10),
-
-        'backbone': 'efficientnet-b0',
-        
-        'class_weights': [0.008, 1.0, 0.048],
-        'lr': ray_tune.loguniform(1e-5, 1e-3),
-        'lr_multi': 10.0,
-
-        'weight_decay': ray_tune.loguniform(1e-9, 1e-5),
-
-        'scheduler': 'poly',
-
-        'use_data_normalization': ray_tune.choice([False, True]),
-
-        'conf_thresh': ray_tune.loguniform(0.5, 0.99),
-        'p_jitter': ray_tune.uniform(0.0, 0.8),
-        'p_gray': ray_tune.uniform(0.0, 0.8),
-        'p_blur': ray_tune.uniform(0.0, 0.8),
-        'p_cutmix': ray_tune.uniform(0.0, 0.8),
-    }
-    '''
 
     param_space = {
         'grand_loss_weights': [1.0, 2.0, 4.0], 
@@ -165,26 +130,27 @@ if __name__ == "__main__":
         'batch_size': 2, 
         'unlabeled_ratio': 90.0, 
         
-        'backbone': ray_tune.choice(['efficientnet-b0', 'timm-efficientnet-b0', 'efficientnet-b2', 'timm-efficientnet-b2', 'efficientnet-b3', 'timm-efficientnet-b3']),
+        'backbone': 'efficientnet-b0',
+        # ray_tune.choice(['efficientnet-b0', 'timm-efficientnet-b0', 'efficientnet-b2', 'timm-efficientnet-b2', 'efficientnet-b3', 'timm-efficientnet-b3']),
         
         'class_weights_idx_2': ray_tune.uniform(0.05, 0.20),
         'class_weights': [0.008, 1.0, 0.048], 
         
         'loss_fn': 'cross_entropy',  # ray_tune.choice(['cross_entropy', 'jaccard', 'dice']),
 
-        'lr': 0.0006641655771494509, 
-        'lr_multi': 10.0, 
-        'weight_decay': 6.090603815955617e-07, 
+        'lr': ray_tune.loguniform(1e-5, 1e-3),
+        'lr_multi': 10.0,
+        'weight_decay': ray_tune.loguniform(1e-9, 1e-5),
         
         'scheduler': 'poly', 
         
         'use_data_normalization': True,
 
-        'conf_thresh': 0.5403738832570637, 
-        'p_jitter': 0.7497370506266263, 
-        'p_gray': 0.42058359750430085, 
-        'p_blur': 0.6580713163389718, 
-        'p_cutmix': 0.5427814390069718,
+        'conf_thresh': ray_tune.loguniform(0.5, 0.99),
+        'p_jitter': ray_tune.uniform(0.0, 0.8),
+        'p_gray': ray_tune.uniform(0.0, 0.8),
+        'p_blur': ray_tune.uniform(0.0, 0.8),
+        'p_cutmix': ray_tune.uniform(0.0, 0.8),
 
         'output_thresh': ray_tune.uniform(0.5, 0.95),
     }

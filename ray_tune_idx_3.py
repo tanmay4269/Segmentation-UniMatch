@@ -109,101 +109,10 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
 if __name__ == "__main__":
     prev_best_cfgs = [
         {
-            'unlabeled_ratio': 10,
-            'lr': 0.000634,
-            'weight_decay': 7.382e-7,
-            'use_data_normalization': True, 
-
-            'conf_thresh': 0.56,
-            'p_jitter': 0.795,
-            'p_gray': 0.6707,
-            'p_blur': 0.01434,
-            'p_cutmix': 0.0,
-        },
-        {
-            'unlabeled_ratio': 10,
-            'lr': 3e-4,
-            'weight_decay': 1e-9,
-            'use_data_normalization': True, 
-            
-            'conf_thresh': 0.95,
-            'p_jitter': 0.8,
-            'p_gray': 0.5,
-            'p_blur': 0.2,
-            'p_cutmix': 0.0,
-        },
-        {
-            'unlabeled_ratio': 10,
-            'lr': 0.000634,
-            'weight_decay': 7.382e-7,
-            'use_data_normalization': False, 
-
-            'conf_thresh': 0.56,
-            'p_jitter': 0.795,
-            'p_gray': 0.6707,
-            'p_blur': 0.01434,
-            'p_cutmix': 0.5,
-        },
-        {
-            'unlabeled_ratio': 10,
-            'lr': 3e-4,
-            'weight_decay': 1e-9,
-            'use_data_normalization': False, 
-            
-            'conf_thresh': 0.95,
-            'p_jitter': 0.8,
-            'p_gray': 0.5,
-            'p_blur': 0.2,
-            'p_cutmix': 0.5,
-        },
-        {
-            'unlabeled_ratio': 10,
-            'lr': 0.000634,
-            'weight_decay': 7.382e-7,
-            'use_data_normalization': False, 
-
-            'conf_thresh': 0.56,
-            'p_jitter': 0.795,
-            'p_gray': 0.6707,
-            'p_blur': 0.01434,
-            'p_cutmix': 0.8,
-        },
-        {
-            'unlabeled_ratio': 10,
-            'lr': 3e-4,
-            'weight_decay': 1e-9,
-            'use_data_normalization': False, 
-            
-            'conf_thresh': 0.95,
-            'p_jitter': 0.8,
-            'p_gray': 0.5,
-            'p_blur': 0.2,
-            'p_cutmix': 0.8,
-        },
+            'lr': 1e-4,
+            'output_thresh': 0.6,
+        }
     ]
-
-    # param_space = {
-    #     'grand_loss_weights': [1.0, 2.0, 4.0],
-    #     'crop_size': 800,
-    #     'batch_size': 2, 
-    #     'unlabeled_ratio': ray_tune.qloguniform(5, 30, 5),
-
-    #     'backbone': 'efficientnet-b0',
-        
-    #     'class_weights': [0.008, 1.0, 0.048],
-    #     'lr': ray_tune.loguniform(1e-5, 1e-3),
-    #     'lr_multi': 10.0,
-    #     'weight_decay': ray_tune.loguniform(1e-9, 1e-5),
-    #     'scheduler': 'poly',
-
-    #     'use_data_normalization': ray_tune.choice([False, True]),
-
-    #     'conf_thresh': ray_tune.qloguniform(0.5, 0.99, 0.01),
-    #     'p_jitter': ray_tune.quniform(0.0, 0.8, 0.1),
-    #     'p_gray': ray_tune.quniform(0.0, 0.8, 0.1),
-    #     'p_blur': ray_tune.quniform(0.0, 0.8, 0.1),
-    #     'p_cutmix': ray_tune.quniform(0.0, 0.8, 0.1)
-    # }
 
     param_space = {
         'grand_loss_weights': [1.0, 2.0, 4.0], 
@@ -214,7 +123,7 @@ if __name__ == "__main__":
 
         'loss_fn': 'cross_entropy',  # ray_tune.choice(['cross_entropy', 'jaccard', 'dice']),
         
-        'lr': 1.5001223538958285e-05, 
+        'lr': ray_tune.choice([5e-5, 1e-4, 3e-4, 5e-4]),
         'lr_multi': 10.0, 
         'weight_decay': 1.1339958143788383e-09, 
         'scheduler': 'poly', 
@@ -222,9 +131,9 @@ if __name__ == "__main__":
 
         'conf_thresh': 0.81, 
         'p_jitter': 0.8, 
-        'p_gray': 0.30000000000000004, 
-        'p_blur': 0.7000000000000001, 
-        'p_cutmix': 0.4,
+        'p_gray': 0.5, 
+        'p_blur': 0.2, 
+        'p_cutmix': 0.5,
 
         'output_thresh': ray_tune.uniform(0.5, 0.95),
     }

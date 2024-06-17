@@ -243,8 +243,8 @@ def trainer(ray_train, args, cfg):
         loader = zip(trainloader_l, trainloader_u, trainloader_u)
 
         for i, ((img_x, mask_x),
-                (img_u_w, img_u_s, _, cutmix_box, _),
-                (img_u_w_mix, img_u_s_mix, _, _, _)) in enumerate(loader):
+                (img_u_w, img_u_s1, img_u_s2, cutmix_box1, cutmix_box2),
+                (img_u_w_mix, img_u_s1_mix, img_u_s2_mix, _, _)) in enumerate(loader):
 
             if i > 2 and args.fast_debug:
                 break
@@ -259,8 +259,8 @@ def trainer(ray_train, args, cfg):
                 print(f"Epoch [{epoch}/{args.num_epochs}]\t Previous Best IoU: {locally_best_iou}")
 
             img_x, mask_x = img_x.cuda(), mask_x.cuda()
-            img_u_w, img_u_s, cutmix_box = img_u_w.cuda(), img_u_s.cuda(), cutmix_box.cuda()
-            img_u_w_mix, img_u_s_mix = img_u_w_mix.cuda(), img_u_s_mix.cuda()
+            img_u_w, img_u_s1, img_u_s2, cutmix_box1, cutmix_box2 = img_u_w.cuda(), img_u_s1.cuda(), img_u_s2.cuda(), cutmix_box1.cuda(), cutmix_box2.cuda()
+            img_u_w_mix, img_u_s1_mix, img_u_s2_mix = img_u_w_mix.cuda(), img_u_s1_mix.cuda(), img_u_s2_mix.cuda()
 
             # predicting inside cutmix box
             with torch.no_grad():
@@ -277,15 +277,16 @@ def trainer(ray_train, args, cfg):
                         (conf_u_w_mix > cfg['output_thresh']).int()
 
             # CutMix
-            img_u_s[cutmix_box.unsqueeze(1).expand(img_u_s.shape) == 1] = \
-                img_u_s_mix[cutmix_box.unsqueeze(1).expand(img_u_s.shape) == 1]
+            img_u_s1[cutmix_box1.unsqueeze(1).expand(img_u_s1.shape) == 1] = \
+                img_u_s1_mix[cutmix_box1.unsqueeze(1).expand(img_u_s1.shape) == 1]
+            img_u_s2[cutmix_box2.unsqueeze(1).expand(img_u_s2.shape) == 1] = \
+                img_u_s2_mix[cutmix_box2.unsqueeze(1).expand(img_u_s2.shape) == 1]
 
             model.train()
 
             # Prediction
-            num_lb, num_ulb = img_x.shape[0], img_u_w.shape[0]
-            pred_x, pred_u_w = model(torch.cat((img_x, img_u_w))).split([num_lb, num_ulb])
-            pred_u_s = model(img_u_s)
+            pred_x, pred_u_w = model(torch.cat((img_x, img_u_w))).chunk(2)
+            pred_u_s1, pred_u_s2 = model(torch.cat((img_u_s1, img_u_s2))).chunk(2)
 
             pred_u_w = pred_u_w.detach()
             if args.nclass == 1:
@@ -294,15 +295,19 @@ def trainer(ray_train, args, cfg):
                 mask_u_w = (conf_u_w > cfg['output_thresh']).int()
 
                 pred_x = pred_x.squeeze(1)
-                pred_u_s = pred_u_s.squeeze(1)
+                pred_u_s1 = pred_u_s1.squeeze(1)
+                pred_u_s2 = pred_u_s2.squeeze(1)
             else:
                 conf_u_w = pred_u_w.softmax(dim=1).max(dim=1)[0]
                 mask_u_w = pred_u_w.argmax(dim=1) * \
                         (conf_u_w > cfg['output_thresh']).int()
 
             # CutMix
-            mask_u_w_cutmixed = mask_u_w.clone()
-            mask_u_w_cutmixed[cutmix_box == 1] = mask_u_w_mix[cutmix_box == 1]
+            mask_u_w_cutmixed1 = mask_u_w.clone()
+            mask_u_w_cutmixed2 = mask_u_w.clone()
+
+            mask_u_w_cutmixed1[cutmix_box1 == 1] = mask_u_w_mix[cutmix_box1 == 1]
+            mask_u_w_cutmixed2[cutmix_box2 == 1] = mask_u_w_mix[cutmix_box2 == 1]
 
             # Visualising 
             if epoch > 0 and (epoch+1) % args.epochs_before_eval == 0:
@@ -310,7 +315,8 @@ def trainer(ray_train, args, cfg):
                 if (epoch_itr >= 8 and epoch_itr < 16):
                     visualise_train(
                         img_x.clone(), mask_x.clone(), pred_x.clone(),
-                        img_u_s.clone(), mask_u_w_cutmixed.clone(), pred_u_s.clone(),
+                        img_u_s1.clone(), mask_u_w_cutmixed1.clone(), pred_u_s1.clone(),
+                        img_u_s2.clone(), mask_u_w_cutmixed2.clone(), pred_u_s2.clone(),
                         epoch_itr, epoch, args, cfg
                     )
 
@@ -320,7 +326,10 @@ def trainer(ray_train, args, cfg):
 
             # implement class weights for idx_12: jaccard and dice losses 
             loss_x = criterion_l(pred_x, mask_x)
-            loss_u_s = criterion_u(pred_u_s, mask_u_w_cutmixed)
+            loss_u_s1 = criterion_u(pred_u_s1, mask_u_w_cutmixed1)
+            loss_u_s2 = criterion_u(pred_u_s2, mask_u_w_cutmixed2)
+
+            loss_u_s = (loss_u_s1 + loss_u_s2) / 2.0
 
             loss = (loss_x + loss_u_s) / 2.0
 
