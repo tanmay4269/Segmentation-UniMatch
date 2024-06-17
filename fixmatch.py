@@ -135,7 +135,6 @@ def evaluate(
     } 
 
 
-# TODO: test if this function works
 def generate_test_outputs(
         checkpoint_path, 
         output_dir, 
@@ -171,8 +170,8 @@ def generate_test_outputs(
             pred = F.interpolate(pred, (h, w), mode='bilinear', align_corners=False)
 
             if args.nclass == 1:
-                pred = (pred.sigmoid() > cfg['output_thresh']).int() * 3  # since idx_3
                 pred = pred.squeeze(1)
+                pred = (pred.sigmoid() > cfg['output_thresh']).int() * 3  # since idx_3
             else:
                 conf = pred.softmax(dim=1).max(dim=1)[0]
                 pred = pred.argmax(dim=1) * (conf > cfg['output_thresh']).int()
@@ -182,7 +181,6 @@ def generate_test_outputs(
 
             pred_np = pred.detach().cpu().numpy()
             np.save(os.path.join(submission_dir, filename), pred_np)
-
 
 
 def trainer(ray_train, args, cfg):
@@ -197,17 +195,31 @@ def trainer(ray_train, args, cfg):
     print(f"Param count: {count_params(model):.1f}M")
     optimizer = init_optimizer(model, cfg)
 
-    class_weights = torch.tensor(cfg['class_weights']).float().cuda()
+    if args.nclass > 1:
+        cw_list = cfg['class_weights']
+        cw_list[2] = cfg['class_weights_idx_2']
+        class_weights = torch.tensor(cw_list).float().cuda()
 
     if args.nclass == 1:
-        criterion_l = nn.BCEWithLogitsLoss()
-        criterion_u = nn.BCEWithLogitsLoss(reduction='none')
-
-        # criterion_l = smp.losses.FocalLoss('binary')
-        # criterion_u = smp.losses.FocalLoss('binary') # , reduction='none')
+        if cfg['loss_fn'] == 'cross_entropy':
+            criterion_l = nn.BCEWithLogitsLoss()
+            criterion_u = nn.BCEWithLogitsLoss()
+        elif cfg['loss_fn'] == 'jaccard':
+            criterion_l = smp.losses.JaccardLoss('binary')
+            criterion_u = smp.losses.JaccardLoss('binary')
+        elif cfg['loss_fn'] == 'dice':
+            criterion_l = smp.losses.DiceLoss('binary')
+            criterion_u = smp.losses.DiceLoss('binary')
     else:
-        criterion_l = nn.CrossEntropyLoss(class_weights)
-        criterion_u = nn.CrossEntropyLoss(class_weights, reduction='none')
+        if cfg['loss_fn'] == 'cross_entropy':
+            criterion_l = nn.CrossEntropyLoss(class_weights)
+            criterion_u = nn.CrossEntropyLoss(class_weights)
+        elif cfg['loss_fn'] == 'jaccard':
+            criterion_l = smp.losses.JaccardLoss('multiclass')
+            criterion_u = smp.losses.JaccardLoss('multiclass')
+        elif cfg['loss_fn'] == 'dice':
+            criterion_l = smp.losses.DiceLoss('multiclass')
+            criterion_u = smp.losses.DiceLoss('multiclass')
 
 
     num_labeled = len(os.listdir(os.path.join(args.labeled_data_dir, 'label')))
@@ -259,13 +271,12 @@ def trainer(ray_train, args, cfg):
                 pred_u_w_mix = model(img_u_w_mix).detach()
 
                 if args.nclass == 1:
-                    # TODO: verify if this works
                     pred_u_w_mix = pred_u_w_mix.squeeze(1)
-                    conf_u_w_mix = pred_u_w_mix.sigmoid()
-                    mask_u_w_mix = (pred_u_w_mix > 0).int()  # (conf_u_w_mix > cfg['conf_thresh']).int()
+                    mask_u_w_mix = (pred_u_w_mix.sigmoid() > cfg['output_thresh']).int()
                 else:
                     conf_u_w_mix = pred_u_w_mix.softmax(dim=1).max(dim=1)[0]
-                    mask_u_w_mix = pred_u_w_mix.argmax(dim=1)
+                    mask_u_w_mix = pred_u_w_mix.argmax(dim=1) * \
+                        (conf_u_w_mix > cfg['output_thresh']).int()
 
             # CutMix
             img_u_s[cutmix_box.unsqueeze(1).expand(img_u_s.shape) == 1] = \
@@ -276,22 +287,22 @@ def trainer(ray_train, args, cfg):
             pred_x, pred_u_w = model(torch.cat((img_x, img_u_w))).split([num_lb, num_ulb])
             pred_u_s = model(img_u_s)
 
+            pred_u_w = pred_u_w.detach()
             if args.nclass == 1:
-                pred_u_w = pred_u_w.detach().squeeze(1)
+                pred_u_w = pred_u_w.squeeze(1)
                 conf_u_w = pred_u_w.sigmoid()
-                mask_u_w = (pred_u_w > 0).int()  # (conf_u_w > cfg['conf_thresh']).int()
+                mask_u_w = (conf_u_w > cfg['output_thresh']).int()
 
                 pred_x = pred_x.squeeze(1)
                 pred_u_s = pred_u_s.squeeze(1)
             else:
-                pred_u_w = pred_u_w.detach()
                 conf_u_w = pred_u_w.softmax(dim=1).max(dim=1)[0]
-                mask_u_w = pred_u_w.argmax(dim=1)
+                mask_u_w = pred_u_w.argmax(dim=1) * \
+                        (conf_u_w > cfg['output_thresh']).int()
 
             # CutMix
-            mask_u_w_cutmixed, conf_u_w_cutmixed = mask_u_w.clone(), conf_u_w.clone()
+            mask_u_w_cutmixed = mask_u_w.clone()
             mask_u_w_cutmixed[cutmix_box == 1] = mask_u_w_mix[cutmix_box == 1]
-            conf_u_w_cutmixed[cutmix_box == 1] = conf_u_w_mix[cutmix_box == 1]
 
             # Visualising 
             if epoch > 0 and (epoch+1) % args.epochs_before_eval == 0:
@@ -304,14 +315,12 @@ def trainer(ray_train, args, cfg):
                     )
 
             if args.nclass == 1:
-                loss_x = criterion_l(pred_x, mask_x.float())
-                loss_u_s = criterion_u(pred_u_s, mask_u_w_cutmixed.float())
-            else:
-                loss_x = criterion_l(pred_x, mask_x)
-                loss_u_s = criterion_u(pred_u_s, mask_u_w_cutmixed)
+                mask_x = mask_x.float()
+                mask_u_w_cutmixed = mask_u_w_cutmixed.float()
 
-            loss_u_s = loss_u_s * (conf_u_w_cutmixed > cfg['conf_thresh'])
-            loss_u_s = loss_u_s.mean()
+            # implement class weights for idx_12: jaccard and dice losses 
+            loss_x = criterion_l(pred_x, mask_x)
+            loss_u_s = criterion_u(pred_u_s, mask_u_w_cutmixed)
 
             loss = (loss_x + loss_u_s) / 2.0
 
@@ -397,8 +406,8 @@ def trainer(ray_train, args, cfg):
             }
 
             # debug
-            # if epoch > 10 and is_locally_best:
-            if is_locally_best:
+            # if is_locally_best:
+            if epoch > 10 and is_locally_best:
                 checkpoint_data['locally_best_iou'] = locally_best_iou
                 with tempfile.TemporaryDirectory() as checkpoint_dir:
                     checkpoint_path = Path(checkpoint_dir) / "locally_best.pth"
@@ -411,8 +420,8 @@ def trainer(ray_train, args, cfg):
                 if ray_train is not None:
                     ray_train.report(eval_logs)
 
-            # if epoch > 10 and is_globally_best:
-            if is_globally_best:
+            # if is_globally_best:
+            if epoch > 10 and is_globally_best:
                 checkpoint_data['globally_best_iou'] = globally_best_iou
                 torch.save(checkpoint_data, os.path.join(args.save_path, 'globally_best.pth'))
 
@@ -437,43 +446,57 @@ def main():
 
         'backbone': 'efficientnet-b0',
         
-        'class_weights': [0.008, 1.0, 0.048],
+        'class_weights': [0.008, 1.0, 0.08],
         
-        'lr': 0.0003,
+        'lr': 5e-4,
         'lr_multi': 10.0,
-        'weight_decay': 1e-9,
+        'weight_decay': 0.000003057,
 
         'scheduler': 'poly',
 
-        'use_data_normalization': True,
+        'use_data_normalization': False,
 
-        'conf_thresh': 0.95,
-        'p_jitter': 0.8,
-        'p_gray': 0.2,
-        'p_blur': 0.5,
-        'p_cutmix': 0.5,
+        'conf_thresh': 0.6179,
+        'p_jitter': 0.3778,
+        'p_gray': 0.3867,
+        'p_blur': 0.5215,
+        'p_cutmix': 0.6652,
 
         'output_thresh': 0.6
+
+
+        # 'use_data_normalization': True,
+
+        # 'conf_thresh': 0.95,
+        # 'p_jitter': 0.1,
+        # 'p_gray': 0.4,
+        # 'p_blur': 0.2,
+        # 'p_cutmix': 0.5,
+
+        # 'output_thresh': 0.6
     }
 
-    # trainer(None, args, config)
+    generate_results = False
 
-    if args.dataset == 'idx_12':
-        config['use_data_normalization'] = False
-        config['output_thresh'] = 0.8
-        generate_test_outputs(
-            checkpoint_path="best_weights/idx_12/12a251be.pth",
-            output_dir="outputs/idx_12/",
-            args=args, cfg=config
-        )
-    elif args.dataset == 'idx_3':
-        config['use_data_normalization'] = True
-        config['output_thresh'] = 0.6
-        generate_test_outputs(
-            checkpoint_path="best_weights/idx_3/globally_best.pth",
-            output_dir="outputs/idx_3/",
-            args=args, cfg=config
-        )
+    if not generate_results:
+        trainer(None, args, config)
+    else:
+        if args.dataset == 'idx_12':
+            config['use_data_normalization'] = False
+            config['output_thresh'] = 0.8
+            generate_test_outputs(
+                checkpoint_path="best_weights/idx_12/12a251be.pth",
+                output_dir="outputs/idx_12/",
+                args=args, cfg=config
+            )
+        elif args.dataset == 'idx_3':
+            config['use_data_normalization'] = True
+            config['output_thresh'] = 0.6
+            generate_test_outputs(
+                checkpoint_path="best_weights/idx_3/globally_best.pth",
+                output_dir="outputs/idx_3/",
+                args=args, cfg=config
+            )
 
     print("="*20)
 

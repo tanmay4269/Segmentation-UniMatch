@@ -109,79 +109,30 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
 if __name__ == "__main__":
     prev_best_cfgs = [
         {
-            'unlabeled_ratio': 10,
-            'lr': 0.000634,
-            'weight_decay': 7.382e-7,
-            'use_data_normalization': True, 
-
-            'conf_thresh': 0.56,
-            'p_jitter': 0.795,
-            'p_gray': 0.6707,
-            'p_blur': 0.01434,
-            'p_cutmix': 0.0,
-        },
-        {
-            'unlabeled_ratio': 10,
-            'lr': 3e-4,
-            'weight_decay': 1e-9,
-            'use_data_normalization': True, 
+            'grand_loss_weights': [1.0, 2.0, 4.0], 
+            'crop_size': 800, 
+            'batch_size': 2, 
+            'unlabeled_ratio': 90.0, 
             
-            'conf_thresh': 0.95,
-            'p_jitter': 0.8,
-            'p_gray': 0.5,
-            'p_blur': 0.2,
-            'p_cutmix': 0.0,
-        },
-        {
-            'unlabeled_ratio': 10,
-            'lr': 0.000634,
-            'weight_decay': 7.382e-7,
-            'use_data_normalization': False, 
-
-            'conf_thresh': 0.56,
-            'p_jitter': 0.795,
-            'p_gray': 0.6707,
-            'p_blur': 0.01434,
-            'p_cutmix': 0.5,
-        },
-        {
-            'unlabeled_ratio': 10,
-            'lr': 3e-4,
-            'weight_decay': 1e-9,
-            'use_data_normalization': False, 
+            'backbone': 'efficientnet-b0', 
             
-            'conf_thresh': 0.95,
-            'p_jitter': 0.8,
-            'p_gray': 0.5,
-            'p_blur': 0.2,
-            'p_cutmix': 0.5,
-        },
-        {
-            'unlabeled_ratio': 10,
-            'lr': 0.000634,
-            'weight_decay': 7.382e-7,
-            'use_data_normalization': False, 
-
-            'conf_thresh': 0.56,
-            'p_jitter': 0.795,
-            'p_gray': 0.6707,
-            'p_blur': 0.01434,
-            'p_cutmix': 0.8,
-        },
-        {
-            'unlabeled_ratio': 10,
-            'lr': 3e-4,
-            'weight_decay': 1e-9,
-            'use_data_normalization': False, 
+            'class_weights': [0.008, 1.0, 0.048], 
             
-            'conf_thresh': 0.95,
-            'p_jitter': 0.8,
-            'p_gray': 0.5,
-            'p_blur': 0.2,
-            'p_cutmix': 0.8,
-        },
+            'lr': 0.0006641655771494509, 
+            'lr_multi': 10.0, 
+            'weight_decay': 6.090603815955617e-07, 
+            'scheduler': 'poly', 
+            'use_data_normalization': True,
+
+            'conf_thresh': 0.5403738832570637, 
+            'p_jitter': 0.7497370506266263, 
+            'p_gray': 0.42058359750430085, 
+            'p_blur': 0.6580713163389718, 
+            'p_cutmix': 0.5427814390069718
+        }
     ]
 
+    '''
     param_space = {
         'grand_loss_weights': [1.0, 2.0, 4.0],
         'crop_size': 800,
@@ -206,5 +157,36 @@ if __name__ == "__main__":
         'p_blur': ray_tune.uniform(0.0, 0.8),
         'p_cutmix': ray_tune.uniform(0.0, 0.8),
     }
+    '''
 
-    main(prev_best_cfgs, param_space, gpus_per_trial=0.5)
+    param_space = {
+        'grand_loss_weights': [1.0, 2.0, 4.0], 
+        'crop_size': 800, 
+        'batch_size': 2, 
+        'unlabeled_ratio': 90.0, 
+        
+        'backbone': ray_tune.choice(['efficientnet-b0', 'timm-efficientnet-b0', 'efficientnet-b2', 'timm-efficientnet-b2', 'efficientnet-b3', 'timm-efficientnet-b3']),
+        
+        'class_weights_idx_2': ray_tune.uniform(0.05, 0.20),
+        'class_weights': [0.008, 1.0, 0.048], 
+        
+        'loss_fn': 'cross_entropy',  # ray_tune.choice(['cross_entropy', 'jaccard', 'dice']),
+
+        'lr': 0.0006641655771494509, 
+        'lr_multi': 10.0, 
+        'weight_decay': 6.090603815955617e-07, 
+        
+        'scheduler': 'poly', 
+        
+        'use_data_normalization': True,
+
+        'conf_thresh': 0.5403738832570637, 
+        'p_jitter': 0.7497370506266263, 
+        'p_gray': 0.42058359750430085, 
+        'p_blur': 0.6580713163389718, 
+        'p_cutmix': 0.5427814390069718,
+
+        'output_thresh': ray_tune.uniform(0.5, 0.95),
+    }
+
+    main(None, param_space, gpus_per_trial=0.5)

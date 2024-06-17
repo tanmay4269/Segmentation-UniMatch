@@ -182,27 +182,51 @@ if __name__ == "__main__":
         },
     ]
 
-    param_space = {
-        'grand_loss_weights': [1.0, 2.0, 4.0],
-        'crop_size': 800,
-        'batch_size': 2, 
-        'unlabeled_ratio': ray_tune.qloguniform(5, 30, 5),
+    # param_space = {
+    #     'grand_loss_weights': [1.0, 2.0, 4.0],
+    #     'crop_size': 800,
+    #     'batch_size': 2, 
+    #     'unlabeled_ratio': ray_tune.qloguniform(5, 30, 5),
 
-        'backbone': 'efficientnet-b0',
+    #     'backbone': 'efficientnet-b0',
         
-        'class_weights': [0.008, 1.0, 0.048],
-        'lr': ray_tune.loguniform(1e-5, 1e-3),
-        'lr_multi': 10.0,
-        'weight_decay': ray_tune.loguniform(1e-9, 1e-5),
-        'scheduler': 'poly',
+    #     'class_weights': [0.008, 1.0, 0.048],
+    #     'lr': ray_tune.loguniform(1e-5, 1e-3),
+    #     'lr_multi': 10.0,
+    #     'weight_decay': ray_tune.loguniform(1e-9, 1e-5),
+    #     'scheduler': 'poly',
 
-        'use_data_normalization': ray_tune.choice([False, True]),
+    #     'use_data_normalization': ray_tune.choice([False, True]),
 
-        'conf_thresh': ray_tune.qloguniform(0.5, 0.99, 0.01),
-        'p_jitter': ray_tune.quniform(0.0, 0.8, 0.1),
-        'p_gray': ray_tune.quniform(0.0, 0.8, 0.1),
-        'p_blur': ray_tune.quniform(0.0, 0.8, 0.1),
-        'p_cutmix': ray_tune.quniform(0.0, 0.8, 0.1)
+    #     'conf_thresh': ray_tune.qloguniform(0.5, 0.99, 0.01),
+    #     'p_jitter': ray_tune.quniform(0.0, 0.8, 0.1),
+    #     'p_gray': ray_tune.quniform(0.0, 0.8, 0.1),
+    #     'p_blur': ray_tune.quniform(0.0, 0.8, 0.1),
+    #     'p_cutmix': ray_tune.quniform(0.0, 0.8, 0.1)
+    # }
+
+    param_space = {
+        'grand_loss_weights': [1.0, 2.0, 4.0], 
+        'crop_size': 800, 
+        'batch_size': 2, 
+        'unlabeled_ratio': 10.0, 
+        'backbone': 'efficientnet-b0', 
+
+        'loss_fn': 'cross_entropy',  # ray_tune.choice(['cross_entropy', 'jaccard', 'dice']),
+        
+        'lr': 1.5001223538958285e-05, 
+        'lr_multi': 10.0, 
+        'weight_decay': 1.1339958143788383e-09, 
+        'scheduler': 'poly', 
+        'use_data_normalization': True, 
+
+        'conf_thresh': 0.81, 
+        'p_jitter': 0.8, 
+        'p_gray': 0.30000000000000004, 
+        'p_blur': 0.7000000000000001, 
+        'p_cutmix': 0.4,
+
+        'output_thresh': ray_tune.uniform(0.5, 0.95),
     }
 
-    main(prev_best_cfgs, param_space, gpus_per_trial=0.5)
+    main(None, param_space, gpus_per_trial=0.5)

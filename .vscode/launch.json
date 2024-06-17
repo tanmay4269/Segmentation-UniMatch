@@ -11,15 +11,15 @@
             "program": "fixmatch.py",
             "args": [
                 "--project_name=ss2-ssl-idx-12",
-                "--model_name=debug-fixmatch-2",
-                "--fast_debug",
-                // "--enable_logging",
+                "--model_name=fixmatch-100",
+                // "--fast_debug",
+                "--enable_logging",
 
                 "--dataset=idx_12",
                 "--nclass=3",
 
-                "--num_epochs=10",
-                "--epochs_before_eval=2",
+                "--num_epochs=100",
+                "--epochs_before_eval=5",
                 "--save_path=exp/idx_12",
             ],
             "justMyCode": false,
@@ -31,20 +31,19 @@
             "type": "debugpy",
             "env": {
                 "CUDA_VISIBLE_DEVICES": "0",
-                "CUDA_LAUNCH_BLOCKING": "1",
             },
             "request": "launch",
             "program": "fixmatch.py",
             "args": [
                 "--project_name=ss2-ssl-idx-3",
-                "--model_name=debug-fixmatch-3-no-norm",
+                "--model_name=fixmatch-100",
                 // "--fast_debug",
                 "--enable_logging",
 
                 "--dataset=idx_3",
                 "--nclass=1",
 
-                "--num_epochs=50",
+                "--num_epochs=100",
                 "--epochs_before_eval=5",
                 "--save_path=exp/idx_3",
             ],
