@@ -52,5 +52,31 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}"
         },
+        {
+            "name": "supervised-idx-3",
+            "type": "debugpy",
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0",
+                "CUDA_LAUNCH_BLOCKING": "1",
+            },
+            "request": "launch",
+            "program": "supervised.py",
+            "args": [
+                "--project_name=ss2-supervised-idx-3",
+                "--model_name=debug",
+                // "--fast_debug",
+                "--enable_logging",
+
+                "--dataset=idx_3",
+                "--nclass=1",
+
+                "--num_epochs=100",
+                "--epochs_before_eval=5",
+                "--save_path=exp/idx_3",
+            ],
+            "justMyCode": false,
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

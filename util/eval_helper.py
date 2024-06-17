@@ -24,8 +24,8 @@ def intersectionAndUnion(pred, target, args, cfg):
     intersection = pred[np.where(pred == target)[0]]
 
     if args.nclass == 1:
-        pred = (pred > 0).astype(np.uint8)
-        intersection = (intersection > 0).astype(np.uint8)
+        pred = pred.astype(np.uint8)
+        intersection = intersection.astype(np.uint8)
 
         area_intersection = np.logical_and(pred, target).sum()
         area_union = np.logical_or(pred, target).sum()
@@ -80,6 +80,9 @@ def get_eval_scores(intersection, union, args, cfg, smooth=1e-10):
 
 
 def visualise_eval(img, target, pred, idx, epoch, args, cfg):
+    if isinstance(idx, torch.Tensor):
+        idx = idx.item()
+    
     img_np = img.detach().cpu().numpy()
 
     if args.nclass > 1:
@@ -112,7 +115,7 @@ def visualise_eval(img, target, pred, idx, epoch, args, cfg):
         axs[2].axis('off')
 
         if args.enable_logging:
-            wandb.log({f"ValImages/idx_{idx.item()}": wandb.Image(fig)}, commit=False)
+            wandb.log({f"ValImages/idx_{idx}": wandb.Image(fig)}, commit=False)
         
         plt.close(fig)
 

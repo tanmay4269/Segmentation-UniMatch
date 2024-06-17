@@ -1,7 +1,7 @@
 #!/bin/bash
 now=$(date +"%Y%m%d_%H%M%S")
 
-save_path=/data1/tgajpati/ss2_ty/Reimplementing-UniMatch/exp/idx_3
+save_path=/data1/tgajpati/ss2_ty/Segmentation-UniMatch/exp/idx_3
 
 mkdir -p $save_path
 

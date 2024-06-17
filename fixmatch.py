@@ -108,11 +108,10 @@ def evaluate(
             total_val_loss.update(val_loss)
 
             if args.nclass == 1:
-                # pred = (pred.sigmoid() > cfg['conf_thresh']).int()
-                pred = (pred.sigmoid() > 0).int()
+                pred = (pred.sigmoid() > cfg['output_thresh']).int()
             else:
-                # pred = (pred.softmax(dim=1) > cfg['conf_thresh']).int()
-                pred = pred.argmax(dim=1)  # TODO: check if this works
+                conf = pred.softmax(dim=1).max(dim=1)[0]
+                pred = pred.argmax(dim=1) * (conf > cfg['output_thresh']).int()
 
             intersection, union = intersectionAndUnion(pred, mask, args, cfg)
 
@@ -162,6 +161,7 @@ def generate_test_outputs(
     model.eval()
     with torch.no_grad():
         for filename, img in testloader:
+            print(filename[0])
             raw_img = img.cuda()
 
             h, w = raw_img.shape[-2:]
@@ -171,11 +171,11 @@ def generate_test_outputs(
             pred = F.interpolate(pred, (h, w), mode='bilinear', align_corners=False)
 
             if args.nclass == 1:
-                # pred = (pred.sigmoid() > cfg['conf_thresh']).int() * 3  # since idx_3
-                pred = (pred.sigmoid() > 0).int() * 3
+                pred = (pred.sigmoid() > cfg['output_thresh']).int() * 3  # since idx_3
                 pred = pred.squeeze(1)
             else:
-                pred = pred.argmax(dim=1)
+                conf = pred.softmax(dim=1).max(dim=1)[0]
+                pred = pred.argmax(dim=1) * (conf > cfg['output_thresh']).int()
 
             filename = filename[0] + "_pred"
             visualise_test(raw_img, pred, os.path.join(output_dir, filename), args, cfg)
@@ -452,19 +452,25 @@ def main():
         'p_gray': 0.2,
         'p_blur': 0.5,
         'p_cutmix': 0.5,
+
+        'output_thresh': 0.6
     }
 
     # trainer(None, args, config)
 
     if args.dataset == 'idx_12':
+        config['use_data_normalization'] = False
+        config['output_thresh'] = 0.8
         generate_test_outputs(
             checkpoint_path="best_weights/idx_12/12a251be.pth",
             output_dir="outputs/idx_12/",
             args=args, cfg=config
         )
     elif args.dataset == 'idx_3':
+        config['use_data_normalization'] = True
+        config['output_thresh'] = 0.6
         generate_test_outputs(
-            checkpoint_path="best_weights/idx_3/42e40060.pth",
+            checkpoint_path="best_weights/idx_3/globally_best.pth",
             output_dir="outputs/idx_3/",
             args=args, cfg=config
         )
