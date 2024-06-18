@@ -59,9 +59,9 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
         print("USING HYPEROPT SEARCH")
 
         hyperopt = HyperOptSearch(
-            param_space,
-            metric="main/grand_loss",
-            mode="min",
+            # param_space,
+            # metric="main/grand_loss",
+            # mode="min",
             points_to_evaluate=prev_best_cfgs,
         )
 
@@ -111,7 +111,7 @@ if __name__ == "__main__":
         'grand_loss_weights': [1.0, 2.0, 4.0], 
         'crop_size': 800, 
         'batch_size': 2, 
-        'unlabeled_ratio': 90.0, 
+        'unlabeled_ratio': ray_tune.choice([10, 25, 50, 100, 150]), 
         
         'backbone': 'efficientnet-b0',
         
@@ -120,6 +120,7 @@ if __name__ == "__main__":
         
         # expand after class weights are possible
         'loss_fn': 'cross_entropy',  # ray_tune.choice(['cross_entropy', 'jaccard', 'dice']),
+        'loss_type': ray_tune.choice(['pre_thresh', 'post_thresh', 'pre_post_thresh']),
 
         'lr': ray_tune.loguniform(1e-5, 1e-3),
         'lr_multi': 10.0,
@@ -130,12 +131,12 @@ if __name__ == "__main__":
         'data_normalization': ray_tune.choice(['none', 'labeled', 'unlabeled', 'validation']),
 
         'conf_thresh': ray_tune.loguniform(0.5, 0.99),
+        'output_thresh': ray_tune.uniform(0.5, 0.95),
+
         'p_jitter': ray_tune.uniform(0.0, 0.8),
         'p_gray': ray_tune.uniform(0.0, 0.8),
         'p_blur': ray_tune.uniform(0.0, 0.8),
         'p_cutmix': ray_tune.uniform(0.0, 0.8),
-
-        'output_thresh': ray_tune.uniform(0.5, 0.95),
     }
 
     main(None, param_space, gpus_per_trial=0.5)

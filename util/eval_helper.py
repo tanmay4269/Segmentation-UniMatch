@@ -120,7 +120,7 @@ def visualise_eval(img, target, pred, idx, epoch, args, cfg):
         plt.close(fig)
 
     
-def visualise_test(img, pred, save_path, args, cfg):
+def visualise_test(img, pred, save_path, args, cfg, show_now=False):
     img_np = img.detach().cpu().numpy()
 
     if args.nclass > 1:
@@ -148,7 +148,10 @@ def visualise_test(img, pred, save_path, args, cfg):
         # if args.enable_logging:
         #     wandb.log({f"TestImages/{filename}": wandb.Image(fig)}, commit=False)
 
-        plt.savefig(save_path)
+        if show_now:
+            plt.show()
+        else:
+            plt.savefig(save_path)
         plt.close(fig)
 
 

@@ -9,14 +9,14 @@ export CUDA_VISIBLE_DEVICES=1
 
 python tune_fixmatch_idx_3.py \
     --project_name=ss2-ssl-idx-3 \
-    --model_name=fixmatch-100 \
-    --search_alg=bohb \
+    --model_name=fixmatch-loss-types \
+    --search_alg=hyperopt \
     --enable_logging \
     \
     --dataset=idx_3 \
     --nclass=1 \
     \
-    --num_samples=90 \
+    --num_samples=150 \
     --num_epochs=200 \
     --epochs_before_eval=5 \
     --save_path=$save_path \

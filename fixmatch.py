@@ -138,12 +138,14 @@ def evaluate(
 def generate_test_outputs(
         checkpoint_path, 
         output_dir, 
-        args, cfg
+        submission_dir,
+        args, cfg,
+        show_now=False
     ):
-    submission_dir = 'outputs/submission/'
     
-    os.makedirs(output_dir, exist_ok=True)
-    os.makedirs(submission_dir, exist_ok=True)
+    if not show_now:
+        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(submission_dir, exist_ok=True)
 
     testset = KerogensDataset(
         args.test_data_dir, 'test',
@@ -177,10 +179,14 @@ def generate_test_outputs(
                 pred = pred.argmax(dim=1) * (conf > cfg['output_thresh']).int()
 
             filename = filename[0] + "_pred"
-            visualise_test(raw_img, pred, os.path.join(output_dir, filename), args, cfg)
+            visualise_test(
+                raw_img, pred, 
+                os.path.join(output_dir, filename), 
+                args, cfg, show_now=show_now)
 
-            pred_np = pred.detach().cpu().numpy()
-            np.save(os.path.join(submission_dir, filename), pred_np)
+            if not show_now:
+                pred_np = pred.detach().cpu().numpy()
+                np.save(os.path.join(submission_dir, filename), pred_np)
 
 
 def trainer(ray_train, args, cfg):
@@ -196,14 +202,15 @@ def trainer(ray_train, args, cfg):
     optimizer = init_optimizer(model, cfg)
 
     if args.nclass > 1:
-        cw_list = cfg['class_weights']
+        cw_list = np.array(cfg['class_weights'])
         cw_list[2] = cfg['class_weights_idx_2']
         class_weights = torch.tensor(cw_list).float().cuda()
 
+    reduction = 'none' if cfg['loss_type'] != 'pre_thresh' else 'mean'
     if args.nclass == 1:
         if cfg['loss_fn'] == 'cross_entropy':
             criterion_l = nn.BCEWithLogitsLoss()
-            criterion_u = nn.BCEWithLogitsLoss()
+            criterion_u = nn.BCEWithLogitsLoss(reduction=reduction)
         elif cfg['loss_fn'] == 'jaccard':
             criterion_l = smp.losses.JaccardLoss('binary')
             criterion_u = smp.losses.JaccardLoss('binary')
@@ -213,7 +220,7 @@ def trainer(ray_train, args, cfg):
     else:
         if cfg['loss_fn'] == 'cross_entropy':
             criterion_l = nn.CrossEntropyLoss(class_weights)
-            criterion_u = nn.CrossEntropyLoss(class_weights)
+            criterion_u = nn.CrossEntropyLoss(class_weights, reduction=reduction)
         elif cfg['loss_fn'] == 'jaccard':
             criterion_l = smp.losses.JaccardLoss('multiclass')
             criterion_u = smp.losses.JaccardLoss('multiclass')
@@ -270,11 +277,16 @@ def trainer(ray_train, args, cfg):
 
                 if args.nclass == 1:
                     pred_u_w_mix = pred_u_w_mix.squeeze(1)
-                    mask_u_w_mix = (pred_u_w_mix.sigmoid() > cfg['output_thresh']).int()
+                    conf_u_w_mix = pred_u_w_mix.sigmoid()
+
+                    thresh = 0.5 if cfg['loss_type'] == 'post_thresh' else cfg['output_thresh']
+                    mask_u_w_mix = (conf_u_w_mix > thresh).int()
                 else:
                     conf_u_w_mix = pred_u_w_mix.softmax(dim=1).max(dim=1)[0]
-                    mask_u_w_mix = pred_u_w_mix.argmax(dim=1) * \
-                        (conf_u_w_mix > cfg['output_thresh']).int()
+                    mask_u_w_mix = pred_u_w_mix.argmax(dim=1)
+
+                    if cfg['loss_type'] != 'post_thresh':
+                        mask_u_w_mix = mask_u_w_mix * (conf_u_w_mix > cfg['output_thresh']).int()
 
             # CutMix
             img_u_s[cutmix_box.unsqueeze(1).expand(img_u_s.shape) == 1] = \
@@ -291,18 +303,26 @@ def trainer(ray_train, args, cfg):
             if args.nclass == 1:
                 pred_u_w = pred_u_w.squeeze(1)
                 conf_u_w = pred_u_w.sigmoid()
-                mask_u_w = (conf_u_w > cfg['output_thresh']).int()
+
+                thresh = 0.5 if cfg['loss_type'] == 'post_thresh' else cfg['output_thresh']
+                mask_u_w = (conf_u_w > thresh).int()
 
                 pred_x = pred_x.squeeze(1)
                 pred_u_s = pred_u_s.squeeze(1)
             else:
                 conf_u_w = pred_u_w.softmax(dim=1).max(dim=1)[0]
-                mask_u_w = pred_u_w.argmax(dim=1) * \
-                        (conf_u_w > cfg['output_thresh']).int()
+                mask_u_w = pred_u_w.argmax(dim=1)
+
+                if cfg['loss_type'] != 'post_thresh':
+                    mask_u_w = mask_u_w * (conf_u_w > cfg['output_thresh']).int()
 
             # CutMix
             mask_u_w_cutmixed = mask_u_w.clone()
             mask_u_w_cutmixed[cutmix_box == 1] = mask_u_w_mix[cutmix_box == 1]
+
+            if cfg['loss_type'] != 'pre_thresh':
+                conf_u_w_cutmixed = conf_u_w.clone()
+                conf_u_w_cutmixed[cutmix_box == 1] = conf_u_w_mix[cutmix_box == 1]
 
             # Visualising 
             if epoch > 0 and (epoch+1) % args.epochs_before_eval == 0:
@@ -321,6 +341,10 @@ def trainer(ray_train, args, cfg):
             # implement class weights for idx_12: jaccard and dice losses 
             loss_x = criterion_l(pred_x, mask_x)
             loss_u_s = criterion_u(pred_u_s, mask_u_w_cutmixed)
+
+            if cfg['loss_type'] != 'pre_thresh':
+                loss_u_s = loss_u_s * (conf_u_w_cutmixed > cfg['conf_thresh'])
+                loss_u_s = loss_u_s.mean()
 
             loss = (loss_x + loss_u_s) / 2.0
 
@@ -442,7 +466,7 @@ def main():
 
         'crop_size': 800,
         'batch_size': 2, 
-        'unlabeled_ratio': 10,
+        'unlabeled_ratio': 140,
 
         'backbone': 'efficientnet-b0',
         
@@ -450,33 +474,23 @@ def main():
         'class_weights': [0.008, 1.0, 0.08],
         
         'loss_fn': 'cross_entropy',
+        'loss_type': 'pre_post_thresh', # 'pre_thresh', 'post_thresh', 'pre_post_thresh'
 
         'lr': 5e-4,
         'lr_multi': 10.0,
-        'weight_decay': 0.000003057,
+        'weight_decay': 3e-6,
 
         'scheduler': 'poly',
 
-        'use_data_normalization': False,
+        'data_normalization': 'none',
 
-        'conf_thresh': 0.6179,
+        'conf_thresh': 0.6179,  # useful only when post_loss_thresh is true
+        'output_thresh': 0.6,  # useful only when post_loss_thresh is False
+
         'p_jitter': 0.3778,
         'p_gray': 0.3867,
         'p_blur': 0.5215,
         'p_cutmix': 0.6652,
-
-        'output_thresh': 0.6
-
-
-        # 'use_data_normalization': True,
-
-        # 'conf_thresh': 0.95,
-        # 'p_jitter': 0.1,
-        # 'p_gray': 0.4,
-        # 'p_blur': 0.2,
-        # 'p_cutmix': 0.5,
-
-        # 'output_thresh': 0.6
     }
 
     generate_results = False

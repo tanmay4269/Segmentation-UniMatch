@@ -55,13 +55,13 @@
             "name": "fixmatch-idx-12",
             "type": "debugpy",
             "env": {
-                "CUDA_VISIBLE_DEVICES": "1",
+                "CUDA_VISIBLE_DEVICES": "0",
             },
             "request": "launch",
             "program": "fixmatch.py",
             "args": [
                 "--project_name=ss2-ssl-idx-12",
-                "--model_name=fixmatch-100",
+                "--model_name=fixmatch-loss-types",
                 // "--fast_debug",
                 // "--enable_logging",
 
@@ -88,13 +88,13 @@
                 "--project_name=ss2-ssl-idx-3",
                 "--model_name=fixmatch-100",
                 // "--fast_debug",
-                "--enable_logging",
+                // "--enable_logging",
 
                 "--dataset=idx_3",
                 "--nclass=1",
 
                 "--num_epochs=100",
-                "--epochs_before_eval=5",
+                "--epochs_before_eval=1",
                 "--save_path=exp/idx_3",
             ],
             "justMyCode": false,

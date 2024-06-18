@@ -34,7 +34,7 @@ def get_args():
     parser.add_argument('--search_alg', type=str, default='rand')
     parser.add_argument('--fast_debug', action='store_true')
     parser.add_argument('--enable_logging', action='store_true')
-    parser.add_argument('--use_checkpoint', action='store_true')
+    parser.add_argument('--use_checkpoint', action='store_true')  # depriciated 
 
     data_root = '/data1/tgajpati/ss2_ty/Segmentation-UniMatch/dataset/kerogens/'
     parser.add_argument('--data_root', type=str, default=data_root)

@@ -9,8 +9,9 @@ export CUDA_VISIBLE_DEVICES=2
 
 python tune_fixmatch_idx_12.py \
     --project_name=ss2-ssl-idx-12 \
-    --model_name=fixmatch-w-cutmix-7 \
-    --search_alg=bohb \
+    --model_name=fixmatch-loss-type \
+    --search_alg=hyperopt \
+    --enable_logging \
     \
     --dataset=idx_12 \
     --nclass=3 \
@@ -23,4 +24,3 @@ python tune_fixmatch_idx_12.py \
     
     # --use_checkpoint \
     # --fast_debug \
-    # --enable_logging \
