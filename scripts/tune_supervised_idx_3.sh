@@ -1,16 +1,16 @@
 #!/bin/bash
 now=$(date +"%Y%m%d_%H%M%S")
 
-save_path=/data1/tgajpati/ss2_ty/Segmentation-UniMatch/exp/idx_3/fixmatch/
+save_path=/data1/tgajpati/ss2_ty/Segmentation-UniMatch/exp/idx_3/supervised/
 
 mkdir -p $save_path
 
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=0
 
-python tune_fixmatch_idx_3.py \
-    --project_name=ss2-ssl-idx-3 \
-    --model_name=fixmatch-100 \
-    --search_alg=bohb \
+python tune_supervised_idx_3.py \
+    --project_name=ss2-supervised-idx-3 \
+    --model_name=kinda-exhaustive-search-1 \
+    --search_alg=hyperopt \
     --enable_logging \
     \
     --dataset=idx_3 \

@@ -1,16 +1,17 @@
 #!/bin/bash
 now=$(date +"%Y%m%d_%H%M%S")
 
-save_path=/data1/tgajpati/ss2_ty/Segmentation-UniMatch/exp/idx_12/fixmatch/
+save_path=/data1/tgajpati/ss2_ty/Segmentation-UniMatch/exp/idx_12/unimatch/
 
 mkdir -p $save_path
 
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES=1
 
-python tune_fixmatch_idx_12.py \
+python tune_unimatch_idx_12.py \
     --project_name=ss2-ssl-idx-12 \
-    --model_name=fixmatch-w-cutmix-7 \
-    --search_alg=bohb \
+    --model_name=unimatch-4 \
+    --search_alg=hyperopt \
+    --enable_logging \
     \
     --dataset=idx_12 \
     --nclass=3 \
@@ -23,4 +24,3 @@ python tune_fixmatch_idx_12.py \
     
     # --use_checkpoint \
     # --fast_debug \
-    # --enable_logging \

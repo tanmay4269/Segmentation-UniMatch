@@ -107,36 +107,15 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
 
 
 if __name__ == "__main__":
-    prev_best_cfgs = [
-        {
-            'class_weights_idx_2': 0.05,
-            
-            'lr': 0.0006641655771494509, 
-            'weight_decay': 6.090603815955617e-07, 
-
-            'conf_thresh': 0.5403738832570637, 
-            'p_jitter': 0.7497370506266263, 
-            'p_gray': 0.42058359750430085, 
-            'p_blur': 0.6580713163389718, 
-            'p_cutmix': 0.5427814390069718,
-
-            'output_thresh': 0.6
-        }
-    ]
-
     param_space = {
         'grand_loss_weights': [1.0, 2.0, 4.0], 
         'crop_size': 800, 
         'batch_size': 2, 
-        'unlabeled_ratio': 90.0, 
+        'unlabeled_ratio': 35, # ray_tune.choice([5, 10, 15, 30]), 
         
-        'backbone': 'efficientnet-b0',
-        # ray_tune.choice(['efficientnet-b0', 'timm-efficientnet-b0', 'efficientnet-b2', 'timm-efficientnet-b2', 'efficientnet-b3', 'timm-efficientnet-b3']),
+        'backbone': ray_tune.choice(['efficientnet-b0', 'timm-efficientnet-b0', 'efficientnet-b2', 'timm-efficientnet-b2']),
         
-        'class_weights_idx_2': ray_tune.uniform(0.05, 0.20),
-        'class_weights': [0.008, 1.0, 0.048], 
-        
-        'loss_fn': 'cross_entropy',  # ray_tune.choice(['cross_entropy', 'jaccard', 'dice']),
+        'loss_fn': ray_tune.choice(['cross_entropy', 'jaccard', 'dice']),
 
         'lr': ray_tune.loguniform(1e-5, 1e-3),
         'lr_multi': 10.0,
@@ -144,7 +123,7 @@ if __name__ == "__main__":
         
         'scheduler': 'poly', 
         
-        'use_data_normalization': True,
+        'data_normalization': ray_tune.choice(['none', 'labeled', 'unlabeled', 'validation']),
 
         'conf_thresh': ray_tune.loguniform(0.5, 0.99),
         'p_jitter': ray_tune.uniform(0.0, 0.8),

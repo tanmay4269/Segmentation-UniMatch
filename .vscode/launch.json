@@ -13,13 +13,13 @@
                 "--project_name=ss2-ssl-idx-12",
                 "--model_name=unimatch-1",
                 // "--fast_debug",
-                "--enable_logging",
+                // "--enable_logging",
 
                 "--dataset=idx_12",
                 "--nclass=3",
 
                 "--num_epochs=100",
-                "--epochs_before_eval=5",
+                "--epochs_before_eval=1",
                 "--save_path=exp/idx_12",
             ],
             "justMyCode": false,
@@ -38,7 +38,7 @@
                 "--project_name=ss2-ssl-idx-3",
                 "--model_name=unimatch-1",
                 // "--fast_debug",
-                "--enable_logging",
+                // "--enable_logging",
 
                 "--dataset=idx_3",
                 "--nclass=1",
@@ -63,13 +63,13 @@
                 "--project_name=ss2-ssl-idx-12",
                 "--model_name=fixmatch-100",
                 // "--fast_debug",
-                "--enable_logging",
+                // "--enable_logging",
 
                 "--dataset=idx_12",
                 "--nclass=3",
 
                 "--num_epochs=100",
-                "--epochs_before_eval=5",
+                "--epochs_before_eval=1",
                 "--save_path=exp/idx_12",
             ],
             "justMyCode": false,

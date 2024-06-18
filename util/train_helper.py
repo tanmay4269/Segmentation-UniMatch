@@ -46,21 +46,30 @@ def get_mean_std_classweights(loader, args):
     else:
         total_counts = np.zeros(args.nclass)
 
-    for img, mask in loader:
+    for data in loader:
+        img = data[0]
+        if loader.dataset.mode == 'val':
+            img = data[1]
+
         mean += torch.mean(img, dim=(0, 2, 3)).numpy()
         std += torch.std(img, dim=(0, 2, 3)).numpy()
 
-        unique, counts = torch.unique(mask, return_counts=True)
 
-        for i, c in zip(unique, counts):
-            total_counts[i] += c.item()
+        # mask = data[1]
+        # if loader.dataset.mode == 'val':
+        #     mask = data[2]
+
+        # unique, counts = torch.unique(mask, return_counts=True)
+
+        # for i, c in zip(unique, counts):
+        # total_counts[i] += c.item()
 
 
     mean /= len(loader)
     std /= len(loader)
 
-    grand_count = sum(total_counts)
-    class_weights = [grand_count / count for count in total_counts]
-    normalized_cw = class_weights / max(class_weights)
+    # grand_count = sum(total_counts)
+    # class_weights = [grand_count / count for count in total_counts]
+    # normalized_cw = class_weights / max(class_weights)
 
-    return mean.tolist(), std.tolist(), normalized_cw.tolist()
+    return mean.tolist(), std.tolist() # , normalized_cw.tolist()

@@ -153,16 +153,20 @@ def visualise_test(img, pred, save_path, args, cfg):
 
 
 def visualise_train(
+        idx, epoch, args, cfg,
         img_x, mask_x, pred_x,
         img_u_s1, mask_u_w_cutmixed1, pred_u_s1,
-        img_u_s2, mask_u_w_cutmixed2, pred_u_s2,
-        idx, epoch, args, cfg
+        img_u_s2=None, mask_u_w_cutmixed2=None, pred_u_s2=None,
     ):
+
+    is_unimatch = img_u_s2 != None
     
     if args.nclass == 1:
         pred_x = pred_x.sigmoid() > cfg['output_thresh']
         pred_u_s1 = pred_u_s1.sigmoid() > cfg['output_thresh']
-        pred_u_s2 = pred_u_s2.sigmoid() > cfg['output_thresh']
+
+        if is_unimatch:
+            pred_u_s2 = pred_u_s2.sigmoid() > cfg['output_thresh']
     else:
         conf_x = pred_x.softmax(dim=1).max(dim=1)[0]
         pred_x = pred_x.argmax(dim=1) * \
@@ -172,45 +176,62 @@ def visualise_train(
         pred_u_s1 = pred_u_s1.argmax(dim=1) * \
             (conf_u_s1 > cfg['output_thresh']).int()
         
-        conf_u_s2 = pred_u_s2.softmax(dim=1).max(dim=1)[0]
-        pred_u_s2 = pred_u_s2.argmax(dim=1) * \
-            (conf_u_s2 > cfg['output_thresh']).int()
-                
-        
+        if is_unimatch:
+            conf_u_s2 = pred_u_s2.softmax(dim=1).max(dim=1)[0]
+            pred_u_s2 = pred_u_s2.argmax(dim=1) * \
+                (conf_u_s2 > cfg['output_thresh']).int()
+                        
     img_x_np = img_x.detach().cpu().numpy()
     img_u_s1_np = img_u_s1.detach().cpu().numpy()
-    img_u_s2_np = img_u_s2.detach().cpu().numpy()
+
+    if is_unimatch:
+        img_u_s2_np = img_u_s2.detach().cpu().numpy()
 
     if args.nclass > 1:
         mask_x = F.one_hot(mask_x, args.nclass)
         pred_x = F.one_hot(pred_x, args.nclass)
 
         mask_u_w_cutmixed1 = F.one_hot(mask_u_w_cutmixed1, args.nclass)
-        mask_u_w_cutmixed2 = F.one_hot(mask_u_w_cutmixed2, args.nclass)
+
+        if is_unimatch:
+            mask_u_w_cutmixed2 = F.one_hot(mask_u_w_cutmixed2, args.nclass)
         
         pred_u_s1 = F.one_hot(pred_u_s1, args.nclass)
-        pred_u_s2 = F.one_hot(pred_u_s2, args.nclass)
+
+        if is_unimatch:
+            pred_u_s2 = F.one_hot(pred_u_s2, args.nclass)
 
 
     mask_x_np = mask_x.detach().cpu().numpy()
     pred_x_np = pred_x.detach().cpu().numpy()
     mask_u_w_cutmixed1_np = mask_u_w_cutmixed1.detach().cpu().numpy()
-    mask_u_w_cutmixed2_np = mask_u_w_cutmixed2.detach().cpu().numpy()
     pred_u_s1_np = pred_u_s1.detach().cpu().numpy()
-    pred_u_s2_np = pred_u_s2.detach().cpu().numpy()
+
+    if is_unimatch:
+        mask_u_w_cutmixed2_np = mask_u_w_cutmixed2.detach().cpu().numpy()
+        pred_u_s2_np = pred_u_s2.detach().cpu().numpy()
 
     for i in range(img_x_np.shape[0]):
         img_x = img_x_np[i].transpose(1,2,0)
         img_u_s1 = img_u_s1_np[i].transpose(1,2,0)
+        
+        if is_unimatch:
+            img_u_s2 = img_u_s2_np[i].transpose(1,2,0)
 
         mask_x = 255 * mask_x_np[i]
         pred_x = 255 * pred_x_np[i]
         mask_u_w_cutmixed1 = 255 * mask_u_w_cutmixed1_np[i]
-        mask_u_w_cutmixed2 = 255 * mask_u_w_cutmixed2_np[i]
         pred_u_s1 = 255 * pred_u_s1_np[i]
-        pred_u_s2 = 255 * pred_u_s2_np[i]
 
-        fig, axs = plt.subplots(3, 3, figsize=(15,15))
+        if is_unimatch:
+            mask_u_w_cutmixed2 = 255 * mask_u_w_cutmixed2_np[i]
+            pred_u_s2 = 255 * pred_u_s2_np[i]
+
+        if is_unimatch:
+            fig, axs = plt.subplots(3, 3, figsize=(15,15))
+        else:
+            fig, axs = plt.subplots(2, 3, figsize=(15,15))
+
         fig.suptitle(f'Train Epoch {epoch}')
 
         # Labeled
@@ -243,20 +264,21 @@ def visualise_train(
         axs[1,2].set_title('pred_u_s1')
         axs[1,2].axis('off')
 
-        # Unlabeled Strong Augmentation 2
-        img_u_s2 -= img_u_s2.min()
-        img_u_s2 /= img_u_s2.max()
-        axs[2,0].imshow(img_u_s2)
-        axs[2,0].set_title('img_u_s2')
-        axs[2,0].axis('off')
+        if is_unimatch:
+            # Unlabeled Strong Augmentation 2
+            img_u_s2 -= img_u_s2.min()
+            img_u_s2 /= img_u_s2.max()
+            axs[2,0].imshow(img_u_s2)
+            axs[2,0].set_title('img_u_s2')
+            axs[2,0].axis('off')
 
-        axs[2,1].imshow(mask_u_w_cutmixed2, cmap='gray')
-        axs[2,1].set_title('mask_u_w_cutmixed2')
-        axs[2,1].axis('off')
+            axs[2,1].imshow(mask_u_w_cutmixed2, cmap='gray')
+            axs[2,1].set_title('mask_u_w_cutmixed2')
+            axs[2,1].axis('off')
 
-        axs[2,2].imshow(pred_u_s2, cmap='gray')
-        axs[2,2].set_title('pred_u_s2')
-        axs[2,2].axis('off')
+            axs[2,2].imshow(pred_u_s2, cmap='gray')
+            axs[2,2].set_title('pred_u_s2')
+            axs[2,2].axis('off')
 
         if args.enable_logging:
             wandb.log({f"TrainImages/idx_{idx}_{i}": wandb.Image(fig)}, commit=False)

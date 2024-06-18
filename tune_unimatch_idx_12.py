@@ -15,8 +15,8 @@ from ray.tune.schedulers import ASHAScheduler
 from ray.tune.schedulers.hb_bohb import HyperBandForBOHB
 
 from util.util import *
-from fixmatch import set_seed
-from fixmatch import trainer as fixmatch_trainer
+from unimatch import set_seed
+from unimatch import trainer as trainer
 
 globally_best_iou = 0
 
@@ -59,9 +59,9 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
         print("USING HYPEROPT SEARCH")
 
         hyperopt = HyperOptSearch(
-            param_space,
-            metric="main/grand_loss",
-            mode="min",
+            # param_space,
+            # metric="main/grand_loss",
+            # mode="min",
             points_to_evaluate=prev_best_cfgs,
         )
 
@@ -75,7 +75,7 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
     
     tuner = ray_tune.Tuner(
         ray_tune.with_resources(
-            ray_tune.with_parameters(partial(fixmatch_trainer, ray_train, args)),
+            ray_tune.with_parameters(partial(trainer, ray_train, args)),
             resources={"cpu": 2, "gpu": gpus_per_trial}
         ),
         tune_config=ray_tune.TuneConfig(
@@ -107,33 +107,33 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
 
 
 if __name__ == "__main__":
-    prev_best_cfgs = [
-        {
-            'lr': 1e-4,
-            'output_thresh': 0.6,
-        }
-    ]
-
     param_space = {
         'grand_loss_weights': [1.0, 2.0, 4.0], 
         'crop_size': 800, 
         'batch_size': 2, 
-        'unlabeled_ratio': 10.0, 
-        'backbone': 'efficientnet-b0', 
-
-        'loss_fn': 'cross_entropy',  # ray_tune.choice(['cross_entropy', 'jaccard', 'dice']),
+        'unlabeled_ratio': ray_tune.choice([10, 25, 50, 100, 150]), 
         
-        'lr': ray_tune.choice([5e-5, 1e-4, 3e-4, 5e-4]),
-        'lr_multi': 10.0, 
-        'weight_decay': 1.1339958143788383e-09, 
-        'scheduler': 'poly', 
-        'use_data_normalization': True, 
+        'backbone': 'efficientnet-b0',
+        
+        'class_weights_idx_2': ray_tune.uniform(0.05, 0.20),
+        'class_weights': [0.008, 1.0, 0.048], 
+        
+        # expand after class weights are possible
+        'loss_fn': 'cross_entropy',  # ray_tune.choice(['cross_entropy', 'jaccard', 'dice']),
 
-        'conf_thresh': 0.81, 
-        'p_jitter': 0.8, 
-        'p_gray': 0.5, 
-        'p_blur': 0.2, 
-        'p_cutmix': 0.5,
+        'lr': ray_tune.loguniform(1e-5, 1e-3),
+        'lr_multi': 10.0,
+        'weight_decay': ray_tune.loguniform(1e-9, 1e-5),
+        
+        'scheduler': 'poly', 
+        
+        'data_normalization': ray_tune.choice(['none', 'labeled', 'unlabeled', 'validation']),
+
+        'conf_thresh': ray_tune.loguniform(0.5, 0.99),
+        'p_jitter': ray_tune.uniform(0.0, 0.8),
+        'p_gray': ray_tune.uniform(0.0, 0.8),
+        'p_blur': ray_tune.uniform(0.0, 0.8),
+        'p_cutmix': ray_tune.uniform(0.0, 0.8),
 
         'output_thresh': ray_tune.uniform(0.5, 0.95),
     }

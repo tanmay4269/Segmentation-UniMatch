@@ -39,7 +39,7 @@ def set_seed(seed=42):
 
     os.environ['PYTHONHASHSEED'] = str(seed)
 
-def load_data(args, cfg, nsample):
+def load_data(args, cfg, nsample=None):
     # Datasets    
     trainset_u = KerogensDataset(
         args.unlabeled_data_dir, 'train_u', 
@@ -309,9 +309,9 @@ def trainer(ray_train, args, cfg):
                 epoch_itr = (i % num_labeled_batches) * cfg['batch_size']
                 if (epoch_itr >= 8 and epoch_itr < 16):
                     visualise_train(
+                        epoch_itr, epoch, args, cfg,
                         img_x.clone(), mask_x.clone(), pred_x.clone(),
                         img_u_s.clone(), mask_u_w_cutmixed.clone(), pred_u_s.clone(),
-                        epoch_itr, epoch, args, cfg
                     )
 
             if args.nclass == 1:
@@ -446,8 +446,11 @@ def main():
 
         'backbone': 'efficientnet-b0',
         
+        'class_weights_idx_2': 0.05,
         'class_weights': [0.008, 1.0, 0.08],
         
+        'loss_fn': 'cross_entropy',
+
         'lr': 5e-4,
         'lr_multi': 10.0,
         'weight_decay': 0.000003057,

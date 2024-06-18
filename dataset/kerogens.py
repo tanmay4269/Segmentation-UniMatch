@@ -43,7 +43,7 @@ class KerogensDataset(Dataset):
         self.images = sorted(os.listdir(self.images_dir))
 
         if mode == 'train_u':
-            if nsample < len(self.images):
+            if nsample and nsample < len(self.images):
                 self.images = self.images[:nsample]
             return
         
@@ -107,7 +107,7 @@ class KerogensDataset(Dataset):
         img_s1 = normalize(self.args, self.cfg, img_s1)
         img_s2 = normalize(self.args, self.cfg, img_s2)
 
-        return normalize(self.args, self.cfg, img_w), img_s1, img_s2, cutmix_box1, cutmix_box2
+        return  normalize(self.args, self.cfg, img_w), img_s1, img_s2, cutmix_box1, cutmix_box2
 
     def __len__(self):
         return len(self.images)

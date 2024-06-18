@@ -108,11 +108,9 @@ def evaluate(
             total_val_loss.update(val_loss)
 
             if args.nclass == 1:
-                pred = (pred.sigmoid() > cfg['conf_thresh']).int()
-                # pred = (pred > 0).int()
+                pred = (pred.sigmoid() > cfg['output_thresh']).int()
             else:
-                # pred = (pred.softmax(dim=1) > cfg['conf_thresh']).int()
-                pred = pred.argmax(dim=1)  # TODO: check if this works
+                pass
 
             intersection, union = intersectionAndUnion(pred, mask, args, cfg)
 
@@ -172,12 +170,11 @@ def generate_test_outputs(
             pred = F.interpolate(pred, (h, w), mode='bilinear', align_corners=False)
 
             if args.nclass == 1:
-                pred = (pred.sigmoid() > cfg['conf_thresh']).int() * 3  # since idx_3
-                # pred = (pred > 0).int() * 3
+                pred = (pred.sigmoid() > cfg['output_thresh']).int() * 3  # since idx_3
                 pred = pred.squeeze(1)
             else:
-                pred = pred.argmax(dim=1)
-
+                pass
+            
             filename = filename[0] + "_pred"
             visualise_test(raw_img, pred, os.path.join(output_dir, filename), args, cfg)
 
@@ -198,14 +195,12 @@ def trainer(ray_train, args, cfg):
     print(f"Param count: {count_params(model):.1f}M")
     optimizer = init_optimizer(model, cfg)
 
-    class_weights = torch.tensor(cfg['class_weights']).float().cuda()
+    if args.nclass > 1:
+        class_weights = torch.tensor(cfg['class_weights']).float().cuda()
 
     if args.nclass == 1:
         criterion_l = nn.BCEWithLogitsLoss()
         criterion_u = nn.BCEWithLogitsLoss(reduction='none')
-
-        # criterion_l = smp.losses.FocalLoss('binary')
-        # criterion_u = smp.losses.FocalLoss('binary') # , reduction='none')
     else:
         criterion_l = nn.CrossEntropyLoss(class_weights)
         criterion_u = nn.CrossEntropyLoss(class_weights, reduction='none')
@@ -232,10 +227,6 @@ def trainer(ray_train, args, cfg):
         loader = zip(trainloader_l, trainloader_u, trainloader_u)
 
         model.train()
-
-        # for i, ((img_x, mask_x),
-        #         (img_u_w, img_u_s, _, cutmix_box, _),
-        #         (img_u_w_mix, img_u_s_mix, _, _, _)) in enumerate(loader):
 
         for i, (img_x, mask_x) in enumerate(trainloader_l):
 
