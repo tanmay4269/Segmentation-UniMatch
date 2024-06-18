@@ -36,7 +36,7 @@ def get_args():
     parser.add_argument('--enable_logging', action='store_true')
     parser.add_argument('--use_checkpoint', action='store_true')  # depriciated 
 
-    data_root = '/data1/tgajpati/ss2_ty/Segmentation-UniMatch/dataset/kerogens/'
+    data_root = '/data1/tgajpati/ss2_ty/tmp/Segmentation-UniMatch/dataset/kerogens/'
     parser.add_argument('--data_root', type=str, default=data_root)
     parser.add_argument('--dataset', type=str, required=True)
     parser.add_argument('--nclass', type=int, required=True)

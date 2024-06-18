@@ -1,13 +1,14 @@
 #!/bin/bash
 now=$(date +"%Y%m%d_%H%M%S")
 
-model_name=augment-labeled-1
+project_name=ss2-supervised-idx-12
+model_name=augment-labeled-2
 
 method=supervised
-dataset=12
+dataset=idx_12
 nclass=3
 
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES=0
 search_alg=hyperopt
 num_samples=90
 num_epochs=120
@@ -17,18 +18,17 @@ epochs_before_eval=5
 # epochs_before_eval=1
 
 ####################
-project_name=ss2-$method-idx-$dataset
 
 save_path=$(pwd)/exp/$dataset/$method/
 mkdir -p $save_path
 
-python tune_${method}_idx_${dataset}.py \
+python tune_${method}_${dataset}.py \
     --project_name=$project_name \
     --model_name=$model_name \
     --search_alg=$search_alg \
     --enable_logging \
     \
-    --dataset=idx_$dataset \
+    --dataset=$dataset \
     --nclass=$nclass \
     \
     --num_samples=$num_samples \

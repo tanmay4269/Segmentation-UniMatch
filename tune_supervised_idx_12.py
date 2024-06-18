@@ -113,6 +113,8 @@ if __name__ == "__main__":
         'batch_size': 2, 
         'backbone': 'efficientnet-b0', # ray_tune.choice(['efficientnet-b0', 'timm-efficientnet-b0', 'efficientnet-b2', 'timm-efficientnet-b2']),
 
+        'class_weights_idx_2': ray_tune.uniform(0.05, 0.20),
+        'class_weights': [0.008, 1.0, 0.048],
         'loss_fn': ray_tune.choice(['cross_entropy', 'jaccard', 'dice']),
         
         'lr': ray_tune.loguniform(1e-5, 1e-3),

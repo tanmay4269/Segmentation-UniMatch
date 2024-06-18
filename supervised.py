@@ -39,40 +39,36 @@ def set_seed(seed=42):
 
     os.environ['PYTHONHASHSEED'] = str(seed)
 
-def load_data(args, cfg, nsample):
+def load_data(args, cfg, nsample=None):
     # Datasets    
-    trainset_u = KerogensDataset(
-        args.unlabeled_data_dir, 'train_u', 
-        args, cfg,
-        cfg['crop_size'], nsample
-    )
     trainset_l = KerogensDataset(
         args.labeled_data_dir, 'train_l', 
         args, cfg,
         cfg['crop_size'], nsample
     )
+
     valset = KerogensDataset(
         args.val_data_dir, 'val',
         args, cfg
     )
 
     # Dataloaders
-    trainloader_u = DataLoader(
-        trainset_u, batch_size=cfg['batch_size'],
-        pin_memory=True, num_workers=1, drop_last=True
+    trainloader_l1 = DataLoader(
+        trainset_l, batch_size=cfg['batch_size'], shuffle=False,
+        pin_memory=True, num_workers=1, drop_last=False
     )
 
-    trainloader_l = DataLoader(
-        trainset_l, batch_size=cfg['batch_size'],
-        pin_memory=True, num_workers=1, drop_last=True
+    trainloader_l2 = DataLoader(
+        trainset_l, batch_size=cfg['batch_size'], shuffle=True,
+        pin_memory=True, num_workers=1, drop_last=False
     )
 
     valloader = DataLoader(
-        valset, batch_size=1, pin_memory=True, num_workers=1,
-        drop_last=False
+        valset, batch_size=1, 
+        pin_memory=True, num_workers=1, drop_last=False
     )
     
-    return trainloader_l, trainloader_u, valloader
+    return trainloader_l1, trainloader_l2, valloader
 
 
 def evaluate(
@@ -110,7 +106,8 @@ def evaluate(
             if args.nclass == 1:
                 pred = (pred.sigmoid() > cfg['output_thresh']).int()
             else:
-                pass
+                conf = pred.softmax(dim=1).max(dim=1)[0]
+                pred = pred.argmax(dim=1) * (conf > cfg['output_thresh']).int()
 
             intersection, union = intersectionAndUnion(pred, mask, args, cfg)
 
@@ -170,10 +167,11 @@ def generate_test_outputs(
             pred = F.interpolate(pred, (h, w), mode='bilinear', align_corners=False)
 
             if args.nclass == 1:
-                pred = (pred.sigmoid() > cfg['output_thresh']).int() * 3  # since idx_3
                 pred = pred.squeeze(1)
+                pred = (pred.sigmoid() > cfg['output_thresh']).int() * 3  # since idx_3
             else:
-                pass
+                conf = pred.softmax(dim=1).max(dim=1)[0]
+                pred = pred.argmax(dim=1) * (conf > cfg['output_thresh']).int()
             
             filename = filename[0] + "_pred"
             visualise_test(raw_img, pred, os.path.join(output_dir, filename), args, cfg)
@@ -184,9 +182,6 @@ def generate_test_outputs(
 
 
 def trainer(ray_train, args, cfg):
-    assert cfg['unlabeled_ratio'] % args.epochs_before_eval == 0, \
-        "The chosen `unlabeled_ratio` is not a multiple of `epochs_before_eval`"
-    
     global globally_best_iou
 
     init_logging(args, cfg)
@@ -196,23 +191,22 @@ def trainer(ray_train, args, cfg):
     optimizer = init_optimizer(model, cfg)
 
     if args.nclass > 1:
-        class_weights = torch.tensor(cfg['class_weights']).float().cuda()
+        cw_array = np.array(cfg['class_weights'])
+        cw_array[2] = cfg['class_weights_idx_2']
+        class_weights = torch.tensor(cw_array).float().cuda()
 
     if args.nclass == 1:
         criterion_l = nn.BCEWithLogitsLoss()
-        criterion_u = nn.BCEWithLogitsLoss(reduction='none')
     else:
         criterion_l = nn.CrossEntropyLoss(class_weights)
-        criterion_u = nn.CrossEntropyLoss(class_weights, reduction='none')
 
 
     num_labeled = len(os.listdir(os.path.join(args.labeled_data_dir, 'label')))
     num_labeled_batches = num_labeled // cfg['batch_size']
-    num_unlabeled = int(cfg['unlabeled_ratio'] * num_labeled)
 
-    trainloader_l, trainloader_u, valloader = load_data(args, cfg, nsample=num_unlabeled)
+    trainloader_l1, trainloader_l2, valloader = load_data(args, cfg)
 
-    total_iters = len(trainloader_l) * args.num_epochs
+    total_iters = len(trainloader_l1) * args.num_epochs
 
     locally_best_iou = 0
     epoch = -1
@@ -223,12 +217,13 @@ def trainer(ray_train, args, cfg):
     total_mask_ratio = AverageMeter()
 
     print("Starting Training...")
-    while epoch < args.num_epochs:     
-        loader = zip(trainloader_l, trainloader_u, trainloader_u)
+    while epoch < args.num_epochs:
+        loader = zip(trainloader_l1, trainloader_l2)
 
         model.train()
 
-        for i, (img_x, mask_x) in enumerate(trainloader_l):
+        for i, ((img_x1, mask_x1, cutmix_box),
+                (img_x2, mask_x2, _)) in enumerate(loader):
 
             if i > 2 and args.fast_debug:
                 break
@@ -242,20 +237,31 @@ def trainer(ray_train, args, cfg):
 
                 print(f"Epoch [{epoch}/{args.num_epochs}]\t Previous Best IoU: {locally_best_iou}")
 
-            img_x, mask_x = img_x.cuda(), mask_x.cuda()
+            img_x1, mask_x1, cutmix_box = img_x1.cuda(), mask_x1.cuda(), cutmix_box.cuda()
+            img_x2, mask_x2 = img_x2.cuda(), mask_x2.cuda()
+
+            # CutMix
+            img_x, mask_x = img_x1.clone(), mask_x1.clone()
+            mask_x[cutmix_box == 1] = mask_x2[cutmix_box == 1]
+            cutmix_box = cutmix_box.unsqueeze(1).repeat(1, 3, 1, 1)
+            img_x[cutmix_box == 1] = img_x2[cutmix_box == 1]
 
             # Prediction
             pred_x = model(img_x)
 
             if args.nclass == 1:
                 pred_x = pred_x.squeeze(1)
+                pred_x_thresh = (pred_x > cfg['output_thresh']).int()
+            else:
+                conf = pred_x.softmax(dim=1).max(dim=1)[0]
+                pred_x_thresh = pred_x.argmax(dim=1) * (conf > cfg['output_thresh']).int()
 
             # Visualising 
             if epoch > 0 and (epoch+1) % args.epochs_before_eval == 0:
                 epoch_itr = (i % num_labeled_batches) * cfg['batch_size']
                 if (epoch_itr >= 8 and epoch_itr < 16):
                     visualise_eval(
-                        img_x.clone(), mask_x.clone(), pred_x.clone(),
+                        img_x.clone(), mask_x.clone(), pred_x_thresh.clone(),
                         epoch_itr + 100, epoch, args, cfg
                     )
 
@@ -270,7 +276,7 @@ def trainer(ray_train, args, cfg):
             optimizer.step()
             
             # LR scheduler step
-            iters = epoch * len(trainloader_l) + i
+            iters = epoch * len(trainloader_l1) + i
             if cfg['scheduler'] == 'poly':
                 lr = cfg['lr'] * (1 - iters / total_iters) ** 0.9
                 optimizer.param_groups[0]["lr"] = lr
@@ -369,7 +375,7 @@ def main():
 
         'crop_size': 800,
         'batch_size': 2, 
-        'unlabeled_ratio': 10,
+        'unlabeled_ratio': 1,
 
         'backbone': 'efficientnet-b0',
         
@@ -381,33 +387,35 @@ def main():
 
         'scheduler': 'poly',
 
-        'use_data_normalization': True,
+        'data_normalization': 'none',
 
         'conf_thresh': 0.6,
-        'p_jitter': 0.1,
-        'p_gray': 0.4,
-        'p_blur': 0.5,
-        'p_cutmix': 0.5,
+        'output_thresh': 0.6,
+
+        'p_jitter_l': 0.1,
+        'p_gray_l': 0.4,
+        'p_blur_l': 0.5,
+        'p_cutmix_l': 0.5,
     }
 
-    # trainer(None, args, config)
+    trainer(None, args, config)
 
-    if args.dataset == 'idx_12':
-        config['use_data_normalization'] = False
-        config['conf_thresh'] = 0.95
-        generate_test_outputs(
-            checkpoint_path="best_weights/idx_12/12a251be.pth",
-            output_dir="outputs/idx_12/",
-            args=args, cfg=config
-        )
-    elif args.dataset == 'idx_3':
-        config['use_data_normalization'] = True
-        config['conf_thresh'] = 0.75
-        generate_test_outputs(
-            checkpoint_path="best_weights/idx_3/globally_best.pth",
-            output_dir="outputs/idx_3/",
-            args=args, cfg=config
-        )
+    # if args.dataset == 'idx_12':
+    #     config['use_data_normalization'] = False
+    #     config['conf_thresh'] = 0.95
+    #     generate_test_outputs(
+    #         checkpoint_path="best_weights/idx_12/12a251be.pth",
+    #         output_dir="outputs/idx_12/",
+    #         args=args, cfg=config
+    #     )
+    # elif args.dataset == 'idx_3':
+    #     config['use_data_normalization'] = True
+    #     config['conf_thresh'] = 0.75
+    #     generate_test_outputs(
+    #         checkpoint_path="best_weights/idx_3/globally_best.pth",
+    #         output_dir="outputs/idx_3/",
+    #         args=args, cfg=config
+    #     )
 
     print("="*20)
 

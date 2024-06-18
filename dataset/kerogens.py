@@ -34,15 +34,15 @@ class KerogensDataset(Dataset):
         self.args = args
         self.cfg = cfg
 
-        self.p_jitter = cfg['p_jitter']
-        self.p_gray = cfg['p_gray']
-        self.p_blur = cfg['p_blur']
-        self.p_cutmix = cfg['p_cutmix']
-
         self.images_dir = os.path.join(data_root, 'image')
         self.images = sorted(os.listdir(self.images_dir))
 
         if mode == 'train_u':
+            self.p_jitter_u = cfg['p_jitter_u']
+            self.p_gray_u = cfg['p_gray_u']
+            self.p_blur_u = cfg['p_blur_u']
+            self.p_cutmix_u = cfg['p_cutmix_u']
+
             if nsample and nsample < len(self.images):
                 self.images = self.images[:nsample]
             return
@@ -56,7 +56,12 @@ class KerogensDataset(Dataset):
         if mode == 'val':
             return
 
-        if nsample:
+        self.p_jitter_l = cfg['p_jitter_l']
+        self.p_gray_l = cfg['p_gray_l']
+        self.p_blur_l = cfg['p_blur_l']
+        self.p_cutmix_l = cfg['p_cutmix_l']
+
+        if nsample and nsample > len(self.images):
             self.images *= math.ceil(nsample / len(self.images))
             self.masks *= math.ceil(nsample / len(self.masks))
 
@@ -88,21 +93,30 @@ class KerogensDataset(Dataset):
         img, mask = hflip(img, mask, p=0.5)
 
         if self.mode == 'train_l':
-            return normalize(self.args, self.cfg, img, mask)
+            aug_img = deepcopy(img)
+
+            if random.random() < self.p_jitter_l:
+                aug_img = transforms.ColorJitter(0.5, 0.5, 0.5, 0.25)(aug_img)
+            aug_img = transforms.RandomGrayscale(p=self.p_gray_l)(aug_img)
+            aug_img = blur(aug_img, p=self.p_blur_l)
+            cutmix_box = obtain_cutmix_box(aug_img.size[0], p=self.p_cutmix_l)
+
+            _img, _mask = normalize(self.args, self.cfg, aug_img, mask)
+            return _img, _mask, cutmix_box
 
         img_w, img_s1, img_s2 = deepcopy(img), deepcopy(img), deepcopy(img)
 
-        if random.random() < self.p_jitter:
+        if random.random() < self.p_jitter_u:
             img_s1 = transforms.ColorJitter(0.5, 0.5, 0.5, 0.25)(img_s1)
-        img_s1 = transforms.RandomGrayscale(p=self.p_gray)(img_s1)
-        img_s1 = blur(img_s1, p=self.p_blur)
-        cutmix_box1 = obtain_cutmix_box(img_s1.size[0], p=self.p_cutmix)
+        img_s1 = transforms.RandomGrayscale(p=self.p_gray_u)(img_s1)
+        img_s1 = blur(img_s1, p=self.p_blur_u)
+        cutmix_box1 = obtain_cutmix_box(img_s1.size[0], p=self.p_cutmix_u)
 
-        if random.random() < self.p_jitter:
+        if random.random() < self.p_jitter_u:
             img_s2 = transforms.ColorJitter(0.5, 0.5, 0.5, 0.25)(img_s2)
-        img_s2 = transforms.RandomGrayscale(p=self.p_gray)(img_s2)
-        img_s2 = blur(img_s2, p=self.p_blur)
-        cutmix_box2 = obtain_cutmix_box(img_s2.size[0], p=self.p_cutmix)
+        img_s2 = transforms.RandomGrayscale(p=self.p_gray_u)(img_s2)
+        img_s2 = blur(img_s2, p=self.p_blur_u)
+        cutmix_box2 = obtain_cutmix_box(img_s2.size[0], p=self.p_cutmix_u)
 
         img_s1 = normalize(self.args, self.cfg, img_s1)
         img_s2 = normalize(self.args, self.cfg, img_s2)
