@@ -12,7 +12,6 @@
             "args": [
                 "--project_name=ss2-ssl-idx-12",
                 "--model_name=unimatch-1",
-                // "--fast_debug",
                 // "--enable_logging",
 
                 "--dataset=idx_12",
@@ -37,7 +36,6 @@
             "args": [
                 "--project_name=ss2-ssl-idx-3",
                 "--model_name=unimatch-1",
-                // "--fast_debug",
                 // "--enable_logging",
 
                 "--dataset=idx_3",
@@ -62,7 +60,6 @@
             "args": [
                 "--project_name=ss2-ssl-idx-12",
                 "--model_name=fixmatch-loss-types",
-                // "--fast_debug",
                 // "--enable_logging",
 
                 "--dataset=idx_12",
@@ -87,7 +84,6 @@
             "args": [
                 "--project_name=ss2-ssl-idx-3",
                 "--model_name=fixmatch-100",
-                // "--fast_debug",
                 // "--enable_logging",
 
                 "--dataset=idx_3",
@@ -111,9 +107,8 @@
             "request": "launch",
             "program": "supervised.py",
             "args": [
-                "--project_name=ss2-supervised-idx-12",
-                "--model_name=debug-augment-labels",
-                // "--fast_debug",
+                "--project_name=ss2-idx-12",
+                "--model_name=debug-sl-0",
                 // "--enable_logging",
 
                 "--dataset=idx_12",
@@ -137,15 +132,14 @@
             "request": "launch",
             "program": "supervised.py",
             "args": [
-                "--project_name=ss2-supervised-idx-3",
-                "--model_name=debug-augment-labels",
-                // "--fast_debug",
+                "--project_name=ss2-idx-3",
+                "--model_name=debug-sl-0",
                 // "--enable_logging",
 
                 "--dataset=idx_3",
                 "--nclass=1",
 
-                "--num_epochs=100",
+                "--num_epochs=5",
                 "--epochs_before_eval=1",
                 "--save_path=exp/idx_3",
             ],

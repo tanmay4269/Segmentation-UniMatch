@@ -19,7 +19,7 @@ epochs_before_eval=5
 
 ####################
 
-save_path=$(pwd)/exp/$dataset/$method/
+save_path=$(pwd)/exp/idx_$dataset/$method/
 mkdir -p $save_path
 
 python tune_${method}_${dataset}.py \

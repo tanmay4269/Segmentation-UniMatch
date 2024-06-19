@@ -87,10 +87,11 @@ class KerogensDataset(Dataset):
         if self.mode == 'val':
             img, mask = normalize(self.args, self.cfg, img, mask)
             return idx, img, mask
-
+        
+        img, mask = random_flip(img, mask)
+        img, mask = random_rotate(img, mask)
         img, mask = resize(img, mask, (0.5, 2.0))
         img, mask = crop(img, mask, self.size)
-        img, mask = hflip(img, mask, p=0.5)
 
         if self.mode == 'train_l':
             aug_img = deepcopy(img)

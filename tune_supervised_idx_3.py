@@ -111,11 +111,12 @@ if __name__ == "__main__":
         'grand_loss_weights': [1.0, 2.0, 4.0], 
         'crop_size': 800, 
         'batch_size': 2, 
-        'backbone': 'efficientnet-b0', # ray_tune.choice(['efficientnet-b0', 'timm-efficientnet-b0', 'efficientnet-b2', 'timm-efficientnet-b2']),
+        'backbone': 'efficientnet-b0',
+        'pretrained': False,
 
-        'loss_fn': ray_tune.choice(['cross_entropy', 'jaccard', 'dice']),
+        'loss_fn': 'cross_entropy', # 'cross_entropy', 'jaccard'
         
-        'lr': ray_tune.loguniform(1e-5, 1e-3),
+        'lr': 1e-2,
         'lr_multi': 10.0, 
         'weight_decay': ray_tune.loguniform(1e-9, 1e-5),
         'scheduler': 'poly', 

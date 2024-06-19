@@ -7,6 +7,120 @@ import torch.nn.functional as F
 import segmentation_models_pytorch as smp
 
 from util.util import *
+from util.train_helper import init_model
+
+# Data
+from torch.utils.data import DataLoader
+from dataset.kerogens import KerogensDataset
+
+
+def evaluate(
+    model, valloader, criterion,
+    epoch,
+    args, cfg
+):
+    model.eval()
+
+    total_val_loss = AverageMeter(track_variance=True)
+    intersection_meter = AverageMeter(track_variance=True)
+    union_meter = AverageMeter(track_variance=True)
+    
+    with torch.no_grad():
+        for idx, img, mask in valloader:
+            if idx > 2 and args.fast_debug:
+                break
+
+            raw_img, mask = img.cuda(), mask.cuda()
+
+            h, w = raw_img.shape[-2:]
+            img = F.interpolate(raw_img, (cfg['crop_size'], cfg['crop_size']), mode='bilinear', align_corners=False)
+
+            pred = model(img)
+            
+            pred = F.interpolate(pred, (h, w), mode='bilinear', align_corners=False)
+
+            if args.nclass == 1:
+                pred = pred.squeeze(1)
+                mask = mask.float()
+
+            val_loss = criterion(pred, mask)
+            total_val_loss.update(val_loss)
+
+            if args.nclass == 1:
+                pred = (pred.sigmoid() > cfg['output_thresh']).int()
+            else:
+                conf = pred.softmax(dim=1).max(dim=1)[0]
+                pred = pred.argmax(dim=1) * (conf > cfg['output_thresh']).int()
+
+            intersection, union = intersectionAndUnion(pred, mask, args, cfg)
+
+            visualise_eval(raw_img, mask, pred, idx, epoch, args, cfg)
+
+            intersection_meter.update(intersection)
+            union_meter.update(union)
+
+    eval_scores = get_eval_scores(intersection_meter, union_meter, args, cfg)
+    eval_scores['eval/loss'] = total_val_loss.avg
+    eval_scores['eval/loss_var'] = total_val_loss.var
+
+    log(eval_scores)
+
+    wIoU = eval_scores['eval/wIoU']
+    print(f"----- wIoU: {wIoU}\t Loss: {total_val_loss.avg}")
+
+    return {
+        'eval/loss': total_val_loss.avg.item(),
+        'eval/wIoU': wIoU
+    } 
+
+
+def generate_test_outputs(
+        checkpoint_path, 
+        test_fig_dir, test_npy_dir,
+        args, cfg
+    ):
+    
+    os.makedirs(test_fig_dir, exist_ok=True)
+    os.makedirs(test_npy_dir, exist_ok=True)
+
+    testset = KerogensDataset(
+        args.test_data_dir, 'test',
+        args, cfg
+    )
+
+    testloader = DataLoader(
+        testset, batch_size=1, pin_memory=True, 
+        num_workers=1, drop_last=False
+    )
+
+    model = init_model(args, cfg, checkpoint_path)
+
+    model.eval()
+    with torch.no_grad():
+        for filename, img in testloader:
+            print(filename[0])
+
+            raw_img = img.cuda()
+
+            h, w = raw_img.shape[-2:]
+            img = F.interpolate(raw_img, (cfg['crop_size'], cfg['crop_size']), mode='bilinear', align_corners=False)
+
+            pred = model(img)
+            pred = F.interpolate(pred, (h, w), mode='bilinear', align_corners=False)
+
+            if args.nclass == 1:
+                pred = pred.squeeze(1)
+                pred = (pred.sigmoid() > cfg['output_thresh']).int() * 3  # since idx_3
+            else:
+                conf = pred.softmax(dim=1).max(dim=1)[0]
+                pred = pred.argmax(dim=1) * (conf > cfg['output_thresh']).int()
+            
+            filename = filename[0] + "_pred"
+            visualise_test(raw_img, pred, filename, test_fig_dir, args, cfg)
+
+            pred_np = pred.detach().cpu().numpy()
+            np.save(os.path.join(test_npy_dir, filename), pred_np)
+
 
 
 def intersectionAndUnion(pred, target, args, cfg):
@@ -120,7 +234,8 @@ def visualise_eval(img, target, pred, idx, epoch, args, cfg):
         plt.close(fig)
 
     
-def visualise_test(img, pred, save_path, args, cfg, show_now=False):
+def visualise_test(img, pred, filename, save_dir, args, cfg, show_now=False):
+    save_path = os.path.join(save_dir, filename)
     img_np = img.detach().cpu().numpy()
 
     if args.nclass > 1:
@@ -145,13 +260,14 @@ def visualise_test(img, pred, save_path, args, cfg, show_now=False):
         axs[1].set_title('Predicted Mask')
         axs[1].axis('off')
 
-        # if args.enable_logging:
-        #     wandb.log({f"TestImages/{filename}": wandb.Image(fig)}, commit=False)
+        if args.enable_logging:
+            wandb.log({f"TestImages/{filename}": wandb.Image(fig)})
 
         if show_now:
             plt.show()
         else:
             plt.savefig(save_path)
+
         plt.close(fig)
 
 
