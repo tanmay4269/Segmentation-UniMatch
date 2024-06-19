@@ -1,21 +1,22 @@
 #!/bin/bash
 now=$(date +"%Y%m%d_%H%M%S")
 
-model_name=augment-labeled-1
+model_name=sl-no-aug-pretrain
+# model_name=debug
 
 method=supervised
-dataset=3
-nclass=1
+dataset=12
+nclass=3
 
 export CUDA_VISIBLE_DEVICES=0
 num_epochs=300
 epochs_before_eval=5
 
-# num_samples=1
+# num_epochs=5
 # epochs_before_eval=1
 
 ####################
-project_name=ss2-$method-idx-$dataset
+project_name=ss2-idx-$dataset
 
 save_path=$(pwd)/exp/idx_$dataset/$method/$now/
 mkdir -p $save_path
@@ -23,6 +24,7 @@ mkdir -p $save_path
 python ${method}.py \
     --project_name=$project_name \
     --model_name=$model_name \
+    --enable_logging \
     \
     --dataset=idx_$dataset \
     --nclass=$nclass \
@@ -32,4 +34,3 @@ python ${method}.py \
     --save_path=$save_path \
     2>&1 | tee $save_path/$now.log
 
-    # --enable_logging \

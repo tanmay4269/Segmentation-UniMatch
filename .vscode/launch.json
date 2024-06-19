@@ -114,9 +114,9 @@
                 "--dataset=idx_12",
                 "--nclass=3",
 
-                "--num_epochs=100",
+                "--num_epochs=5",
                 "--epochs_before_eval=1",
-                "--save_path=exp/idx_3",
+                "--save_path=exp/idx_12",
             ],
             "justMyCode": false,
             "console": "integratedTerminal",
@@ -133,7 +133,7 @@
             "program": "supervised.py",
             "args": [
                 "--project_name=ss2-idx-3",
-                "--model_name=debug-sl-0",
+                "--model_name=sl-no-aug-0",
                 // "--enable_logging",
 
                 "--dataset=idx_3",

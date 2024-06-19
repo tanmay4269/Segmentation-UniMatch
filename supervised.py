@@ -256,28 +256,30 @@ def main():
     print("="*20)
     os.makedirs(args.save_path, exist_ok=True)
 
-    config = {
+    idx_12_config = {
         'grand_loss_weights': [1.0, 2.0, 4.0],
 
         'crop_size': 800,
-        'batch_size': 8,  # 2, 4, 8, 16
+        'batch_size': 4,  # 2, 4, 8, 16
 
         'backbone': 'efficientnet-b0',
-        'pretrained': False,  # False, True
+        'pretrained': True,  # False, True
 
-        # 'class_weights': [0.008, 1.0, 0.048],  # only for idx_12
+        'class_weights_idx_2': 0.048,  # only for idx_12
+        'class_weights': [0.008, 1.0, 0.048],
         
         'loss_fn': 'cross_entropy',  # 'cross_entropy', 'jaccard', 'combined'
-        'lr': 1e-2,
-        # 'lr_multi': 10.0,  # used only when pretrained is true
+        # 'lr': 1e-2,
+        'lr': 3e-4,
+
+        'lr_multi': 10.0,  # used only when pretrained is true
         'weight_decay': 1e-9,
 
         'scheduler': 'poly',
 
         'data_normalization': 'none',  # 'none', 'labeled', 'validation', 'unlabeled'
 
-        'conf_thresh'   : 0.5,  # 0.5, 0.7, 0.9
-        'output_thresh' : 0.5,
+        'output_thresh' : 0.5,  # 0.5, 0.7, 0.9
 
         'p_jitter_l': 0.0,
         'p_gray_l'  : 0.0,
@@ -285,7 +287,35 @@ def main():
         'p_cutmix_l': 0.0,
     }
 
-    trainer(None, args, config)
+    idx_3_config = {
+        'grand_loss_weights': [1.0, 2.0, 4.0],
+
+        'crop_size': 800,
+        'batch_size': 4,  # 2, 4, 8, 16
+
+        'backbone': 'efficientnet-b0',
+        'pretrained': True,  # False, True
+
+        'loss_fn': 'cross_entropy',  # 'cross_entropy', 'jaccard', 'combined'
+        # 'lr': 1e-2,
+        'lr': 3e-4,
+
+        'lr_multi': 10.0,  # used only when pretrained is true
+        'weight_decay': 1e-9,
+
+        'scheduler': 'poly',
+
+        'data_normalization': 'labeled',  # 'none', 'labeled', 'validation', 'unlabeled'
+
+        'output_thresh' : 0.5,  # 0.5, 0.7, 0.9
+
+        'p_jitter_l': 0.0,
+        'p_gray_l'  : 0.0,
+        'p_blur_l'  : 0.0,
+        'p_cutmix_l': 0.0,
+    }
+
+    trainer(None, args, idx_12_config)
 
     print("="*20)
 
