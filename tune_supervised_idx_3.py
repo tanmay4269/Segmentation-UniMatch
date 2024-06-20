@@ -34,7 +34,7 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
         
         scheduler = ASHAScheduler(
             max_t=args.num_epochs,
-            grace_period=3,
+            grace_period=10,
             reduction_factor=2
         )
 
@@ -69,7 +69,7 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
 
         scheduler = ASHAScheduler(
             max_t=args.num_epochs,
-            grace_period=3,
+            grace_period=10,
             reduction_factor=2
         )
     
@@ -108,27 +108,30 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
 
 if __name__ == "__main__":
     param_space = {
-        'grand_loss_weights': [1.0, 2.0, 4.0], 
-        'crop_size': 800, 
-        'batch_size': 2, 
+        'grand_loss_weights': [1.0, 2.0, 4.0],
+
+        'crop_size': 800,
+        'batch_size': 4,  # 2, 4, 8, 16
+
         'backbone': 'efficientnet-b0',
-        'pretrained': False,
+        'pretrained': ray_tune.choice([False, True]),  # False, True
 
-        'loss_fn': 'cross_entropy', # 'cross_entropy', 'jaccard'
-        
-        'lr': 1e-2,
-        'lr_multi': 10.0, 
-        'weight_decay': ray_tune.loguniform(1e-9, 1e-5),
-        'scheduler': 'poly', 
-        
-        'data_normalization': ray_tune.choice(['none', 'labeled', 'unlabeled', 'validation']),
+        'loss_fn': 'cross_entropy',  # 'cross_entropy', 'jaccard', 'combined'
+        'lr': ray_tune.loguniform(1e-4, 1e-2),
 
-        'p_jitter_l': ray_tune.uniform(0.0, 0.8), 
-        'p_gray_l': ray_tune.uniform(0.0, 0.8), 
-        'p_blur_l': ray_tune.uniform(0.0, 0.8), 
-        'p_cutmix_l': ray_tune.uniform(0.0, 0.8),
+        'lr_multi': 10.0,  # used only when pretrained is true
+        'weight_decay': 1e-9,
 
-        'output_thresh': ray_tune.uniform(0.5, 0.95),
+        'scheduler': 'poly',
+
+        'data_normalization': 'labeled',  # 'none', 'labeled', 'validation', 'unlabeled'
+
+        'output_thresh' : ray_tune.choice([0.5, 0.7, 0.9]),
+
+        'p_jitter_l': ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
+        'p_gray_l'  : ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
+        'p_blur_l'  : ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
+        'p_cutmix_l': ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
     }
 
-    main(None, param_space, gpus_per_trial=1.0)
+    main(None, param_space, gpus_per_trial=0.5)

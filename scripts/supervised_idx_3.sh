@@ -1,14 +1,14 @@
 #!/bin/bash
 now=$(date +"%Y%m%d_%H%M%S")
 
-model_name=sl-no-aug-pretrain-1
+model_name=sl-pretrained-cutmix-3
 
 method=supervised
 dataset=3
 nclass=1
 
-export CUDA_VISIBLE_DEVICES=0
-num_epochs=300
+export CUDA_VISIBLE_DEVICES=2
+num_epochs=200
 epochs_before_eval=5
 
 # num_samples=1
