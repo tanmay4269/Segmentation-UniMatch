@@ -20,7 +20,7 @@ from supervised import trainer
 
 globally_best_iou = 0
 
-def main(prev_best_cfgs, param_space, gpus_per_trial):
+def main(prev_best_cfgs, param_space, gpus_per_trial, grace_period):
     set_seed(42)
 
     args = get_args()
@@ -69,7 +69,7 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
 
         scheduler = ASHAScheduler(
             max_t=args.num_epochs,
-            grace_period=10,
+            grace_period=grace_period,
             reduction_factor=2
         )
     
@@ -111,15 +111,15 @@ if __name__ == "__main__":
         'grand_loss_weights': [1.0, 2.0, 4.0],
 
         'crop_size': 800,
-        'batch_size': 4,  # 2, 4, 8, 16
+        'batch_size': 2,  # 2, 4, 8, 16
 
         'backbone': 'efficientnet-b0',
-        'pretrained': ray_tune.choice([False, True]),  # False, True
+        'pretrained': False, # ray_tune.choice([False, True]),  # False, True
 
         'loss_fn': 'cross_entropy',  # 'cross_entropy', 'jaccard', 'combined'
         'lr': ray_tune.loguniform(1e-4, 1e-2),
 
-        'lr_multi': 10.0,  # used only when pretrained is true
+        # 'lr_multi': 10.0,  # used only when pretrained is true
         'weight_decay': 1e-9,
 
         'scheduler': 'poly',
@@ -128,10 +128,10 @@ if __name__ == "__main__":
 
         'output_thresh' : ray_tune.choice([0.5, 0.7, 0.9]),
 
-        'p_jitter_l': ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
-        'p_gray_l'  : ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
-        'p_blur_l'  : ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
-        'p_cutmix_l': ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
+        'p_jitter_l': 0.0, # ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
+        'p_gray_l'  : 0.0, # ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
+        'p_blur_l'  : 0.0, # ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
+        'p_cutmix_l': 0.0, # ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
     }
 
-    main(None, param_space, gpus_per_trial=0.5)
+    main(None, param_space, gpus_per_trial=1.0, grace_period=10)

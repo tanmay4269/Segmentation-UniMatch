@@ -1,13 +1,13 @@
 #!/bin/bash
 now=$(date +"%Y%m%d_%H%M%S")
 
-model_name=sl-pretrained-cutmix-3
+model_name=sl-tune-no-pretraining
 
 method=supervised
 dataset=3
 nclass=1
 
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES=0
 num_epochs=200
 epochs_before_eval=5
 

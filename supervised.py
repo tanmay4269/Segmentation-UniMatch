@@ -78,16 +78,24 @@ def trainer(ray_train, args, cfg):
     print(cfg)
 
     model_name = str(args.model_name)
-    if cfg['pretrained']:
-        model_name += '-pretrained'
-    else:
-        model_name += '-no-pretraining'
 
-    j = cfg['p_jitter_l']
-    g = cfg['p_gray_l']
-    b = cfg['p_blur_l']
-    c = cfg['p_cutmix_l']
-    model_name += f'-j{j}-g{g}-b{b}-c{c}'
+    thresh = cfg['output_thresh']
+    model_name += f'-t{thresh}'
+
+    lr = cfg['lr']
+    model_name += f'-l{lr:e}'
+
+    # if cfg['pretrained']:
+    #     model_name += '-pretrained'
+    # else:
+    #     model_name += '-no-pretraining'
+
+    # j = cfg['p_jitter_l']
+    # g = cfg['p_gray_l']
+    # b = cfg['p_blur_l']
+    # c = cfg['p_cutmix_l']
+    # model_name += f'-j{j}-g{g}-b{b}-c{c}'
+
     args.model_name = model_name
     cfg['save_path'] = args.save_path
 

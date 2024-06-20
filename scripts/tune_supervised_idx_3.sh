@@ -1,15 +1,15 @@
 #!/bin/bash
 now=$(date +"%Y%m%d_%H%M%S")
 
-model_name=sl-tune-aug
+model_name=sl-tune-no-pretraining
 
 method=supervised
 dataset=3
 nclass=1
 
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES=0
 search_alg=hyperopt
-num_samples=90
+num_samples=10
 num_epochs=300
 epochs_before_eval=5
 
