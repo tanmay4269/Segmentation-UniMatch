@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 # Torch
 import torch
@@ -58,21 +57,31 @@ def load_data(args, cfg, nsample=None):
 
     # Dataloaders
     trainloader_u = DataLoader(
-        trainset_u, batch_size=cfg['batch_size'],
+        trainset_u, batch_size=cfg['batch_size'], shuffle=False,
+        pin_memory=True, num_workers=1, drop_last=True
+    )
+
+    trainloader_u_mix = DataLoader(
+        trainset_u, batch_size=cfg['batch_size'], shuffle=True,
         pin_memory=True, num_workers=1, drop_last=True
     )
 
     trainloader_l = DataLoader(
-        trainset_l, batch_size=cfg['batch_size'],
+        trainset_l, batch_size=cfg['batch_size'], shuffle=False,
+        pin_memory=True, num_workers=1, drop_last=True
+    )
+
+    trainloader_l_mix = DataLoader(
+        trainset_l, batch_size=cfg['batch_size'], shuffle=True,
         pin_memory=True, num_workers=1, drop_last=True
     )
 
     valloader = DataLoader(
-        valset, batch_size=1, pin_memory=True, num_workers=1,
-        drop_last=False
+        valset, batch_size=1, shuffle=False,
+        pin_memory=True, num_workers=1, drop_last=False
     )
     
-    return trainloader_l, trainloader_u, valloader
+    return trainloader_l, trainloader_l_mix, trainloader_u, trainloader_u_mix, valloader
 
 
 def evaluate(
@@ -197,7 +206,7 @@ def trainer(ray_train, args, cfg):
 
     init_logging(args, cfg)
 
-    model = init_model(args.nclass, cfg['backbone'])
+    model = init_model(args, cfg)
     print(f"Param count: {count_params(model):.1f}M")
     optimizer = init_optimizer(model, cfg)
 
@@ -233,7 +242,7 @@ def trainer(ray_train, args, cfg):
     num_labeled_batches = num_labeled // cfg['batch_size']
     num_unlabeled = int(cfg['unlabeled_ratio'] * num_labeled)
 
-    trainloader_l, trainloader_u, valloader = load_data(args, cfg, nsample=num_unlabeled)
+    trainloader_l, trainloader_l_mix, trainloader_u, trainloader_u_mix, valloader = load_data(args, cfg, nsample=num_unlabeled)
 
     total_iters = len(trainloader_l) * args.num_epochs
 
@@ -247,10 +256,11 @@ def trainer(ray_train, args, cfg):
 
     print("Starting Training...")
     while epoch < args.num_epochs:     
-        loader = zip(trainloader_l, trainloader_u, trainloader_u)
+        loader = zip(trainloader_l, trainloader_l_mix, trainloader_u, trainloader_u_mix)
 
-        for i, ((img_x, mask_x),
-                (img_u_w, img_u_s, _, cutmix_box, _),
+        for i, ((img_x, mask_x, cutmix_box_l),
+                (img_x_mix, mask_x_mix, _),
+                (img_u_w, img_u_s, _, cutmix_box_u, _),
                 (img_u_w_mix, img_u_s_mix, _, _, _)) in enumerate(loader):
 
             if i > 2 and args.fast_debug:
@@ -265,9 +275,15 @@ def trainer(ray_train, args, cfg):
 
                 print(f"Epoch [{epoch}/{args.num_epochs}]\t Previous Best IoU: {locally_best_iou}")
 
-            img_x, mask_x = img_x.cuda(), mask_x.cuda()
-            img_u_w, img_u_s, cutmix_box = img_u_w.cuda(), img_u_s.cuda(), cutmix_box.cuda()
+            img_x, mask_x, cutmix_box_l = img_x.cuda(), mask_x.cuda(), cutmix_box_l.cuda()
+            img_x_mix, mask_x_mix = img_x_mix.cuda(), mask_x_mix.cuda()
+            img_u_w, img_u_s, cutmix_box_u = img_u_w.cuda(), img_u_s.cuda(), cutmix_box_u.cuda()
             img_u_w_mix, img_u_s_mix = img_u_w_mix.cuda(), img_u_s_mix.cuda()
+
+            # CutMix
+            mask_x[cutmix_box_l == 1] = mask_x_mix[cutmix_box_l == 1]
+            cutmix_box_l = cutmix_box_l.unsqueeze(1).repeat(1, 3, 1, 1)
+            img_x[cutmix_box_l == 1] = img_x_mix[cutmix_box_l == 1]
 
             # predicting inside cutmix box
             with torch.no_grad():
@@ -289,8 +305,8 @@ def trainer(ray_train, args, cfg):
                         mask_u_w_mix = mask_u_w_mix * (conf_u_w_mix > cfg['output_thresh']).int()
 
             # CutMix
-            img_u_s[cutmix_box.unsqueeze(1).expand(img_u_s.shape) == 1] = \
-                img_u_s_mix[cutmix_box.unsqueeze(1).expand(img_u_s.shape) == 1]
+            img_u_s[cutmix_box_u.unsqueeze(1).expand(img_u_s.shape) == 1] = \
+                img_u_s_mix[cutmix_box_u.unsqueeze(1).expand(img_u_s.shape) == 1]
 
             model.train()
 
@@ -318,11 +334,11 @@ def trainer(ray_train, args, cfg):
 
             # CutMix
             mask_u_w_cutmixed = mask_u_w.clone()
-            mask_u_w_cutmixed[cutmix_box == 1] = mask_u_w_mix[cutmix_box == 1]
+            mask_u_w_cutmixed[cutmix_box_u == 1] = mask_u_w_mix[cutmix_box_u == 1]
 
             if cfg['loss_type'] != 'pre_thresh':
                 conf_u_w_cutmixed = conf_u_w.clone()
-                conf_u_w_cutmixed[cutmix_box == 1] = conf_u_w_mix[cutmix_box == 1]
+                conf_u_w_cutmixed[cutmix_box_u == 1] = conf_u_w_mix[cutmix_box_u == 1]
 
             # Visualising 
             if epoch > 0 and (epoch+1) % args.epochs_before_eval == 0:
@@ -450,7 +466,20 @@ def trainer(ray_train, args, cfg):
                 torch.save(checkpoint_data, os.path.join(args.save_path, 'globally_best.pth'))
 
 
-    print("Training Completed!")
+    print("Training Completed! Getting Test Results...")
+    
+    checkpoint_path = os.path.join(args.save_path, 'globally_best.pth')
+    test_fig_dir = os.path.join(args.save_path, 'fig')
+    test_npy_dir = os.path.join(args.save_path, 'npy')
+
+    generate_test_outputs(
+        checkpoint_path=checkpoint_path,
+        test_fig_dir=test_fig_dir,
+        test_npy_dir=test_npy_dir,
+        args=args, cfg=cfg
+    )
+
+    print('All Test Results Generated!')
 
 
 def main():
@@ -466,54 +495,37 @@ def main():
 
         'crop_size': 800,
         'batch_size': 2, 
-        'unlabeled_ratio': 140,
+        'unlabeled_ratio': 10,
 
         'backbone': 'efficientnet-b0',
-        
-        'class_weights_idx_2': 0.05,
-        'class_weights': [0.008, 1.0, 0.08],
+        'pretrained': True,  # False, True
         
         'loss_fn': 'cross_entropy',
         'loss_type': 'pre_post_thresh', # 'pre_thresh', 'post_thresh', 'pre_post_thresh'
 
-        'lr': 5e-4,
+        'lr': 2e-4,
         'lr_multi': 10.0,
-        'weight_decay': 3e-6,
+        'weight_decay': 1e-9,
 
         'scheduler': 'poly',
 
-        'data_normalization': 'none',
+        'data_normalization': 'labeled',
 
-        'conf_thresh': 0.6179,  # useful only when post_loss_thresh is true
-        'output_thresh': 0.6,  # useful only when post_loss_thresh is False
+        'conf_thresh': 0.75,  # useful only when post_loss_thresh is true
+        'output_thresh': 0.5,  # useful only when post_loss_thresh is False
 
-        'p_jitter': 0.3778,
-        'p_gray': 0.3867,
-        'p_blur': 0.5215,
-        'p_cutmix': 0.6652,
+        'p_jitter_l': 0.0,
+        'p_gray_l': 0.0,
+        'p_blur_l': 0.0,
+        'p_cutmix_l': 0.0,
+
+        'p_jitter_u': 0.0,
+        'p_gray_u': 0.0,
+        'p_blur_u': 0.0,
+        'p_cutmix_u': 0.0,
     }
 
-    generate_results = False
-
-    if not generate_results:
-        trainer(None, args, config)
-    else:
-        if args.dataset == 'idx_12':
-            config['use_data_normalization'] = False
-            config['output_thresh'] = 0.8
-            generate_test_outputs(
-                checkpoint_path="best_weights/idx_12/12a251be.pth",
-                output_dir="outputs/idx_12/",
-                args=args, cfg=config
-            )
-        elif args.dataset == 'idx_3':
-            config['use_data_normalization'] = True
-            config['output_thresh'] = 0.6
-            generate_test_outputs(
-                checkpoint_path="best_weights/idx_3/globally_best.pth",
-                output_dir="outputs/idx_3/",
-                args=args, cfg=config
-            )
+    trainer(None, args, config)
 
     print("="*20)
 

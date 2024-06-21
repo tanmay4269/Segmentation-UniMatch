@@ -100,16 +100,12 @@ class KerogensDataset(Dataset):
             aug_img = np.array(aug_img)
 
             if random.random() < self.p_jitter_l:
-                # aug_img = transforms.ColorJitter(0.5, 0.5, 0.5, 0.25)(aug_img)
-                l = 0.1; m = 0.1
+                l = 0.1; m = 0.25
                 aug_img = A.Compose([
                     A.ColorJitter(brightness=(l, m), contrast=(l, m), saturation=(l, m), hue=(l/2, m/2)),
                 ])(image=aug_img)['image']
 
-            # aug_img = transforms.RandomGrayscale(p=self.p_gray_l)(aug_img)
             aug_img = A.Compose([A.ToGray(p=self.p_gray_l)])(image=aug_img)['image']
-
-            # aug_img = blur(aug_img, p=self.p_blur_l)
             aug_img = A.Compose([A.Blur(blur_limit=3, p=self.p_blur_l)])(image=aug_img)['image']
 
 

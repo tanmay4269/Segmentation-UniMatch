@@ -92,10 +92,10 @@ def trainer(ray_train, args, cfg):
     # c = cfg['p_cutmix_l']
     # model_name += f'-j{j}-g{g}-b{b}-c{c}'
 
-    b = cfg['p_blur_l']
-    lr = cfg['lr']
+    # b = cfg['p_blur_l']
+    # lr = cfg['lr']
 
-    model_name += f'-b{b}-l{lr:.1e}'
+    # model_name += f'-b{b}-l{lr:.1e}'
 
     args.model_name = model_name
     cfg['save_path'] = args.save_path
@@ -302,9 +302,9 @@ def main():
 
         'output_thresh' : 0.5,  # 0.5, 0.7, 0.9
 
-        'p_jitter_l': 0.0,
+        'p_jitter_l': 0.25,
         'p_gray_l'  : 0.0,
-        'p_blur_l'  : 0.75,
+        'p_blur_l'  : 0.25,
         'p_cutmix_l': 0.0,
     }
 

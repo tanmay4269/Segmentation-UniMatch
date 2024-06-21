@@ -18,7 +18,7 @@ def init_weights(m):
 
 def init_model(args, cfg, checkpoint_path=None):
     weights = 'imagenet' if cfg['pretrained'] else None
-    
+
     model = smp.DeepLabV3Plus(
         encoder_name=cfg['backbone'],
         encoder_weights=weights,

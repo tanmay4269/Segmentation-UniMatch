@@ -11,12 +11,12 @@ def random_flip(img, mask, p=0.5):
     if random.random() > p:
         return img, mask
 
-    if random.random() < 0.5:
-        img = img.transpose(Image.FLIP_LEFT_RIGHT)
-        mask = mask.transpose(Image.FLIP_LEFT_RIGHT)
-    else:
-        img = img.transpose(Image.FLIP_TOP_BOTTOM)
-        mask = mask.transpose(Image.FLIP_TOP_BOTTOM)
+    dir = Image.FLIP_LEFT_RIGHT if random.random() < 0.5 else Image.FLIP_TOP_BOTTOM
+
+    img = img.transpose(dir)
+    
+    if mask: 
+        mask = mask.transpose(dir)
     
     return img, mask
 
@@ -27,7 +27,9 @@ def random_rotate(img, mask, p=0.5):
 
     angle = random.uniform(-180, 180)
     img = img.rotate(angle, resample=Image.NEAREST)
-    mask = mask.rotate(angle, resample=Image.NEAREST)
+    
+    if mask:
+        mask = mask.rotate(angle, resample=Image.NEAREST)
     
     return img, mask
 
@@ -62,7 +64,9 @@ def resize(img, mask, ratio_range=(1,1)):
         oh = int(1.0 * h * long_side / w + 0.5)
 
     img = img.resize((ow, oh), Image.BILINEAR)
-    mask = mask.resize((ow, oh), Image.NEAREST)
+    if mask:
+        mask = mask.resize((ow, oh), Image.NEAREST)
+
     return img, mask
 
 

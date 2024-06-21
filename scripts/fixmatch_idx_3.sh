@@ -1,9 +1,9 @@
 #!/bin/bash
 now=$(date +"%Y%m%d_%H%M%S")
 
-model_name=sl-pretrained-j0.25-b0.25
+model_name=sll-fm-no-aug-ur10-lr2e-4
 
-method=supervised
+method=fixmatch
 dataset=3
 nclass=1
 
@@ -15,6 +15,7 @@ epochs_before_eval=5
 
 # num_epochs=10
 # epochs_before_eval=1
+    # --enable_logging \
 
 ####################
 project_name=ss2-idx-$dataset
