@@ -3,7 +3,6 @@ import argparse
 import wandb 
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 import torch.nn.functional as F
 
@@ -36,8 +35,7 @@ def get_args():
     parser.add_argument('--enable_logging', action='store_true')
     parser.add_argument('--use_checkpoint', action='store_true')  # depriciated 
 
-    data_root = '/data1/tgajpati/ss2_ty/tmp/Segmentation-UniMatch/dataset/kerogens/'
-    parser.add_argument('--data_root', type=str, default=data_root)
+    parser.add_argument('--dataroot', type=str, required=True)
     parser.add_argument('--dataset', type=str, required=True)
     parser.add_argument('--nclass', type=int, required=True)
 
@@ -47,9 +45,10 @@ def get_args():
     parser.add_argument('--save_path', type=str, required=True)
 
     args = parser.parse_args()
-    labeled_data_dir = os.path.join(data_root, f'labeled/class-wise/train/{args.dataset}')
+    data_root = args.dataroot
+    labeled_data_dir = os.path.join(data_root, f'labeled/train/{args.dataset}')
+    val_data_dir = os.path.join(data_root, f'labeled/val/{args.dataset}')
     unlabeled_data_dir = os.path.join(data_root, f'unlabeled/{args.dataset}')
-    val_data_dir = os.path.join(data_root, f'labeled/class-wise/val/{args.dataset}')
     test_data_dir = os.path.join(data_root, f'test/{args.dataset}')
 
     parser.add_argument('--labeled_data_dir', type=str, default=labeled_data_dir)

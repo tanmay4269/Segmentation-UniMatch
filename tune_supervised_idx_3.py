@@ -34,7 +34,7 @@ def main(prev_best_cfgs, param_space, gpus_per_trial, grace_period):
         
         scheduler = ASHAScheduler(
             max_t=args.num_epochs,
-            grace_period=10,
+            grace_period=grace_period,
             reduction_factor=2
         )
 
@@ -65,7 +65,7 @@ def main(prev_best_cfgs, param_space, gpus_per_trial, grace_period):
             points_to_evaluate=prev_best_cfgs,
         )
 
-        search_alg = ConcurrencyLimiter(hyperopt, max_concurrent=2)
+        search_alg = ConcurrencyLimiter(hyperopt, max_concurrent=1)
 
         scheduler = ASHAScheduler(
             max_t=args.num_epochs,
@@ -114,24 +114,24 @@ if __name__ == "__main__":
         'batch_size': 2,  # 2, 4, 8, 16
 
         'backbone': 'efficientnet-b0',
-        'pretrained': False, # ray_tune.choice([False, True]),  # False, True
+        'pretrained': True, # ray_tune.choice([False, True]),  # False, True
 
         'loss_fn': 'cross_entropy',  # 'cross_entropy', 'jaccard', 'combined'
-        'lr': ray_tune.loguniform(1e-4, 1e-2),
+        'lr': 2e-4, # ray_tune.choice([1e-4, 2e-4, 4e-4]),
 
-        # 'lr_multi': 10.0,  # used only when pretrained is true
+        'lr_multi': 10.0,  # used only when pretrained is true
         'weight_decay': 1e-9,
 
         'scheduler': 'poly',
 
         'data_normalization': 'labeled',  # 'none', 'labeled', 'validation', 'unlabeled'
 
-        'output_thresh' : ray_tune.choice([0.5, 0.7, 0.9]),
+        'output_thresh' : 0.5, # ray_tune.choice([0.5, 0.7, 0.9]),
 
         'p_jitter_l': 0.0, # ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
-        'p_gray_l'  : 0.0, # ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
-        'p_blur_l'  : 0.0, # ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
-        'p_cutmix_l': 0.0, # ray_tune.choice([0.0, 0.2, 0.4, 0.6]),
+        'p_gray_l'  : ray_tune.choice([0.0, 0.25, 0.5]),
+        'p_blur_l'  : ray_tune.choice([0.0, 0.25, 0.5]),
+        'p_cutmix_l': 0.0, # ray_tune.choice([0.0, 0.25, 0.5]),
     }
 
     main(None, param_space, gpus_per_trial=1.0, grace_period=10)

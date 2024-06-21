@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 # Torch
 import torch
@@ -79,11 +78,8 @@ def trainer(ray_train, args, cfg):
 
     model_name = str(args.model_name)
 
-    thresh = cfg['output_thresh']
-    model_name += f'-t{thresh}'
-
-    lr = cfg['lr']
-    model_name += f'-l{lr:e}'
+    # thresh = cfg['output_thresh']
+    # model_name += f'-t{thresh}'
 
     # if cfg['pretrained']:
     #     model_name += '-pretrained'
@@ -95,6 +91,11 @@ def trainer(ray_train, args, cfg):
     # b = cfg['p_blur_l']
     # c = cfg['p_cutmix_l']
     # model_name += f'-j{j}-g{g}-b{b}-c{c}'
+
+    b = cfg['p_blur_l']
+    lr = cfg['lr']
+
+    model_name += f'-b{b}-l{lr:.1e}'
 
     args.model_name = model_name
     cfg['save_path'] = args.save_path
@@ -280,80 +281,17 @@ def main():
     print("="*20)
     os.makedirs(args.save_path, exist_ok=True)
 
-    idx_12_config_pretrain = {
+    config = {
         'grand_loss_weights': [1.0, 2.0, 4.0],
 
         'crop_size': 800,
-        'batch_size': 4,  # 2, 4, 8, 16
-
-        'backbone': 'efficientnet-b0',
-        'pretrained': True,  # False, True
-
-        'class_weights_idx_2': 0.048,  # only for idx_12
-        'class_weights': [0.008, 1.0, 0.048],
-        
-        'loss_fn': 'cross_entropy',  # 'cross_entropy', 'jaccard', 'combined'
-        # 'lr': 1e-2,
-        'lr': 3e-4,
-
-        'lr_multi': 10.0,  # used only when pretrained is true
-        'weight_decay': 1e-9,
-
-        'scheduler': 'poly',
-
-        'data_normalization': 'none',  # 'none', 'labeled', 'validation', 'unlabeled'
-
-        'output_thresh' : 0.5,  # 0.5, 0.7, 0.9
-
-        'p_jitter_l': 0.0,  # increment by 0.2
-        'p_gray_l'  : 0.0,
-        'p_blur_l'  : 0.0,
-        'p_cutmix_l': 0.0,
-    }
-
-    idx_12_config_no_pretrain = {
-        'grand_loss_weights': [1.0, 2.0, 4.0],
-
-        'crop_size': 800,
-        'batch_size': 4,  # 2, 4, 8, 16
-
-        'backbone': 'efficientnet-b0',
-        'pretrained': False,  # False, True
-
-        'class_weights_idx_2': 0.048,  # only for idx_12
-        'class_weights': [0.008, 1.0, 0.048],
-        
-        'loss_fn': 'cross_entropy',  # 'cross_entropy', 'jaccard', 'combined'
-        'lr': 1e-2,
-        # 'lr': 3e-4,
-
-        # 'lr_multi': 10.0,  # used only when pretrained is true
-        'weight_decay': 1e-9,
-
-        'scheduler': 'poly',
-
-        'data_normalization': 'none',  # 'none', 'labeled', 'validation', 'unlabeled'
-
-        'output_thresh' : 0.5,  # 0.5, 0.7, 0.9
-
-        'p_jitter_l': 0.0,  # increment by 0.2
-        'p_gray_l'  : 0.0,
-        'p_blur_l'  : 0.0,
-        'p_cutmix_l': 0.0,
-    }
-
-    idx_3_config_pretrain = {
-        'grand_loss_weights': [1.0, 2.0, 4.0],
-
-        'crop_size': 800,
-        'batch_size': 8,  # 2, 4, 8, 16
+        'batch_size': 2,  # 2, 4, 8, 16
 
         'backbone': 'efficientnet-b0',
         'pretrained': True,  # False, True
 
         'loss_fn': 'cross_entropy',  # 'cross_entropy', 'jaccard', 'combined'
-        # 'lr': 1e-2,
-        'lr': 6e-4,
+        'lr': 2e-4,
 
         'lr_multi': 10.0,  # used only when pretrained is true
         'weight_decay': 1e-9,
@@ -366,39 +304,11 @@ def main():
 
         'p_jitter_l': 0.0,
         'p_gray_l'  : 0.0,
-        'p_blur_l'  : 0.0,
-        'p_cutmix_l': 0.5,
-    }
-
-    idx_3_config_no_pretrain = {
-        'grand_loss_weights': [1.0, 2.0, 4.0],
-
-        'crop_size': 800,
-        'batch_size': 4,  # 2, 4, 8, 16
-
-        'backbone': 'efficientnet-b0',
-        'pretrained': False,  # False, True
-
-        'loss_fn': 'cross_entropy',  # 'cross_entropy', 'jaccard', 'combined'
-        'lr': 1e-3,
-        # 'lr': 3e-4,
-
-        # 'lr_multi': 10.0,  # used only when pretrained is true
-        'weight_decay': 1e-9,
-
-        'scheduler': 'poly',
-
-        'data_normalization': 'labeled',  # 'none', 'labeled', 'validation', 'unlabeled'
-
-        'output_thresh' : 0.5,  # 0.5, 0.7, 0.9
-
-        'p_jitter_l': 0.0,
-        'p_gray_l'  : 0.0,
-        'p_blur_l'  : 0.0,
+        'p_blur_l'  : 0.75,
         'p_cutmix_l': 0.0,
     }
 
-    trainer(None, args, idx_3_config_pretrain)
+    trainer(None, args, config)
 
     print("="*20)
 

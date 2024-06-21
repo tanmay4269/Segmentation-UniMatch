@@ -1,6 +1,9 @@
 import wandb
 import numpy as np
-import matplotlib.pyplot as plt
+
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot as plt
 
 import torch
 import torch.nn.functional as F

@@ -20,7 +20,7 @@ from fixmatch import trainer as fixmatch_trainer
 
 globally_best_iou = 0
 
-def main(prev_best_cfgs, param_space, gpus_per_trial):
+def main(prev_best_cfgs, param_space, gpus_per_trial, grace_period):
     set_seed(42)
 
     args = get_args()
@@ -34,7 +34,7 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
         
         scheduler = ASHAScheduler(
             max_t=args.num_epochs,
-            grace_period=3,
+            grace_period=grace_period,
             reduction_factor=2
         )
 
@@ -48,7 +48,7 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
             points_to_evaluate=prev_best_cfgs
         )
 
-        search_alg = ConcurrencyLimiter(bohb, max_concurrent=2)
+        search_alg = ConcurrencyLimiter(bohb, max_concurrent=1)
 
         scheduler = HyperBandForBOHB(
             max_t=args.num_epochs,
@@ -65,11 +65,11 @@ def main(prev_best_cfgs, param_space, gpus_per_trial):
             points_to_evaluate=prev_best_cfgs,
         )
 
-        search_alg = ConcurrencyLimiter(hyperopt, max_concurrent=2)
+        search_alg = ConcurrencyLimiter(hyperopt, max_concurrent=1)
 
         scheduler = ASHAScheduler(
             max_t=args.num_epochs,
-            grace_period=3,
+            grace_period=grace_period,
             reduction_factor=2
         )
     
@@ -113,14 +113,14 @@ if __name__ == "__main__":
         'batch_size': 2, 
         'unlabeled_ratio': ray_tune.choice([5, 10, 15, 30]), 
         
-        'backbone': ray_tune.choice(['efficientnet-b0', 'timm-efficientnet-b0', 'efficientnet-b2', 'timm-efficientnet-b2']),
+        'backbone': 'efficientnet-b0',
         
-        'loss_fn': 'cross_entropy', # ray_tune.choice(['cross_entropy', 'jaccard', 'dice']),
+        'loss_fn': 'cross_entropy',
         'loss_type': ray_tune.choice(['pre_thresh', 'post_thresh', 'pre_post_thresh']),
 
         'lr': ray_tune.loguniform(1e-5, 1e-3),
         'lr_multi': 10.0,
-        'weight_decay': ray_tune.loguniform(1e-9, 1e-5),
+        'weight_decay': 1e-9, 
         
         'scheduler': 'poly', 
         

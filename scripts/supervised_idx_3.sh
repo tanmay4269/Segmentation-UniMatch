@@ -1,17 +1,18 @@
 #!/bin/bash
 now=$(date +"%Y%m%d_%H%M%S")
 
-model_name=sl-tune-no-pretraining
+model_name=sl-tune-pretrained-blur
 
 method=supervised
 dataset=3
 nclass=1
 
 export CUDA_VISIBLE_DEVICES=0
+dataroot=/home/tvg/Segmentation-UniMatch/dataset/kerogens
 num_epochs=200
 epochs_before_eval=5
 
-# num_samples=1
+# num_epochs=10
 # epochs_before_eval=1
 
 ####################
@@ -25,6 +26,7 @@ python ${method}.py \
     --model_name=$model_name \
     --enable_logging \
     \
+    --dataroot=$dataroot \
     --dataset=idx_$dataset \
     --nclass=$nclass \
     \

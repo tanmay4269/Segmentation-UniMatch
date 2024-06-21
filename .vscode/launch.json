@@ -136,6 +136,7 @@
                 "--model_name=sl-no-aug-0",
                 // "--enable_logging",
 
+                "--dataroot=/home/tvg/Segmentation-UniMatch/dataset/kerogens",
                 "--dataset=idx_3",
                 "--nclass=1",
 

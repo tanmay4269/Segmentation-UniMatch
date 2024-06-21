@@ -13,8 +13,7 @@ import torch
 from torch.utils.data import Dataset
 import torch.nn.functional as F
 from torchvision import transforms
-
-import matplotlib.pyplot as plt
+import albumentations as A
 
 
 class KerogensDataset(Dataset):
@@ -85,8 +84,8 @@ class KerogensDataset(Dataset):
             return file_name, img
         
         if self.mode == 'val':
-            img, mask = normalize(self.args, self.cfg, img, mask)
-            return idx, img, mask
+            _img, _mask = normalize(self.args, self.cfg, img, mask)
+            return idx, _img, _mask
         
         img, mask = random_flip(img, mask)
         img, mask = random_rotate(img, mask)
@@ -95,12 +94,24 @@ class KerogensDataset(Dataset):
 
         if self.mode == 'train_l':
             aug_img = deepcopy(img)
+            
+            cutmix_box = obtain_cutmix_box(aug_img.size[0], p=self.p_cutmix_l)
+            
+            aug_img = np.array(aug_img)
 
             if random.random() < self.p_jitter_l:
-                aug_img = transforms.ColorJitter(0.5, 0.5, 0.5, 0.25)(aug_img)
-            aug_img = transforms.RandomGrayscale(p=self.p_gray_l)(aug_img)
-            aug_img = blur(aug_img, p=self.p_blur_l)
-            cutmix_box = obtain_cutmix_box(aug_img.size[0], p=self.p_cutmix_l)
+                # aug_img = transforms.ColorJitter(0.5, 0.5, 0.5, 0.25)(aug_img)
+                l = 0.1; m = 0.1
+                aug_img = A.Compose([
+                    A.ColorJitter(brightness=(l, m), contrast=(l, m), saturation=(l, m), hue=(l/2, m/2)),
+                ])(image=aug_img)['image']
+
+            # aug_img = transforms.RandomGrayscale(p=self.p_gray_l)(aug_img)
+            aug_img = A.Compose([A.ToGray(p=self.p_gray_l)])(image=aug_img)['image']
+
+            # aug_img = blur(aug_img, p=self.p_blur_l)
+            aug_img = A.Compose([A.Blur(blur_limit=3, p=self.p_blur_l)])(image=aug_img)['image']
+
 
             _img, _mask = normalize(self.args, self.cfg, aug_img, mask)
             return _img, _mask, cutmix_box
