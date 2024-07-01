@@ -37,4 +37,4 @@ The bright yellow patterns are to be segmented out
 | UniMatch | 0.48 | 71% |
 | UniMatch (More augmentations) | 0.49 | 75% |
 
-- Ray Tune was used for extensive hyperparameter search which helped secure us in top 50 among 300 participants.
+- Ray Tune was used for extensive hyperparameter search which helped squeeze out last 0.5-1.0% improvement.
